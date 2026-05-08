@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Environment files (NEVER COMMIT - contains API keys)
+.env
+.env.local
+.env.*.local
+
+# Vercel
+.vercel
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Backups
+*.bak
+*.bak2
