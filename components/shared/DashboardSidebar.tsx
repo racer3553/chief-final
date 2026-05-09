@@ -163,37 +163,4 @@ export default function DashboardSidebar({ profile }: { profile: any }) {
               const active = isActive(it.href)
               return (
                 <Link key={it.href} href={it.href}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all"
-                  style={{
-                    color: active ? '#f472b6' : '#9aa0a6',
-                    background: active ? 'rgba(244,114,182,0.12)' : 'transparent',
-                    fontWeight: active ? 700 : 500,
-                    fontSize: '12.5px',
-                  }}>
-                  <ItemIcon size={14} className="shrink-0" />
-                  <span>{it.label}</span>
-                </Link>
-              )
-            })}
-          </div>
-        )}
-      </nav>
-
-      <div className="border-t p-3" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-        <div className="flex items-center gap-2 px-2 py-2 rounded-lg" style={{ background: '#161622' }}>
-          <div className="w-8 h-8 rounded-full flex items-center justify-center font-extrabold text-[11px] text-white shrink-0"
-            style={{ background: 'linear-gradient(135deg,#ef4444,#dc2626)' }}>
-            {(profile?.team_name?.[0] || profile?.email?.[0] || '?').toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[12.5px] font-bold text-white truncate">{profile?.team_name || 'Racer'}</div>
-            <div className="text-[10px] text-slate-500 capitalize">{profile?.subscription_plan || 'trial'}</div>
-          </div>
-          <button onClick={handleLogout} className="p-1.5 rounded text-slate-500 hover:text-red-400 hover:bg-red-500/10">
-            <LogOut size={13} />
-          </button>
-        </div>
-      </div>
-    </aside>
-  )
-}
+                  classNa
