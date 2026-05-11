@@ -45,8 +45,14 @@ export async function GET(req: Request, ctx: { params: { id: string } }) {
 
     // List mode — match by session_id first; fall back to car+track+time-window
     // for backward compat with traces pushed before the FK linker existed.
-    const sessionStart = session.started_at ? new Date(session.started_at).toISOString() : null
-    const sessionEnd   = session.ended_at   ? new Date(session.ended_at).toISOString()   : new Date().toISOString()
+    // Widen the session window — many captured sessions have a missing ended_at
+    // or the laps were driven over a long stint. Use a generous +/- 4 hour window
+    // from started_at so we don't miss laps that should belong to this session.
+    const startBase  = session.started_at ? new Date(session.started_at) : null
+    const sessionStart = startBase ? new Date(startBase.getTime() - 30 * 60 * 1000).toISOString() : null
+    const sessionEnd   = session.ended_at
+      ? new Date(new Date(session.ended_at).getTime() + 30 * 60 * 1000).toISOString()
+      : (startBase ? new Date(startBase.getTime() + 4 * 60 * 60 * 1000).toISOString() : new Date().toISOString())
 
     let { data: traces } = await sb
       .from('sim_lap_traces')
@@ -55,8 +61,9 @@ export async function GET(req: Request, ctx: { params: { id: string } }) {
       .eq('session_id', sessionId)
       .order('lap_number', { ascending: true })
 
+    // Fallback 1: car+track exact match within the session time window
     if ((traces || []).length === 0 && sessionStart) {
-      const { data: fallback } = await sb
+      const { data: fb1 } = await sb
         .from('sim_lap_traces')
         .select('id, lap_number, lap_time, track, track_config, car, sample_count, ts, session_id')
         .eq('user_id', user.id)
@@ -65,7 +72,33 @@ export async function GET(req: Request, ctx: { params: { id: string } }) {
         .gte('ts', sessionStart)
         .lte('ts', sessionEnd)
         .order('lap_number', { ascending: true })
-      traces = fallback || []
+      traces = fb1 || []
+    }
+
+    // Fallback 2: same track within the time window (any car) — handles traces
+    // captured before we wired up car_name properly
+    if ((traces || []).length === 0 && sessionStart && session.track_name) {
+      const { data: fb2 } = await sb
+        .from('sim_lap_traces')
+        .select('id, lap_number, lap_time, track, track_config, car, sample_count, ts, session_id')
+        .eq('user_id', user.id)
+        .eq('track', session.track_name)
+        .gte('ts', sessionStart)
+        .lte('ts', sessionEnd)
+        .order('lap_number', { ascending: true })
+      traces = fb2 || []
+    }
+
+    // Fallback 3: user + time window only (handles traces with missing car/track)
+    if ((traces || []).length === 0 && sessionStart) {
+      const { data: fb3 } = await sb
+        .from('sim_lap_traces')
+        .select('id, lap_number, lap_time, track, track_config, car, sample_count, ts, session_id')
+        .eq('user_id', user.id)
+        .gte('ts', sessionStart)
+        .lte('ts', sessionEnd)
+        .order('lap_number', { ascending: true })
+      traces = fb3 || []
     }
 
     // Compute a derived "best lap" and a sane default reference lap
