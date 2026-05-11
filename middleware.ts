@@ -27,6 +27,16 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
+  // Case-insensitive redirect for /install (testers often type INSTALL in caps)
+  const lower = pathname.toLowerCase()
+  if (pathname !== lower && (lower === '/install' || lower === '/setup' || lower === '/download')) {
+    return NextResponse.redirect(new URL(lower, request.url))
+  }
+  // Friendly aliases that all map to the installer
+  if (lower === '/setup' || lower === '/download' || lower === '/get' || lower === '/chief') {
+    return NextResponse.redirect(new URL('/install', request.url))
+  }
+
   if (pathname.startsWith('/dashboard') && !user) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
@@ -38,5 +48,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login', '/signup'],
+  // Include /install + alias paths so they get the case-insensitive redirect handling
+  matcher: ['/dashboard/:path*', '/login', '/signup', '/install', '/INSTALL', '/Install', '/setup', '/SETUP', '/Setup', '/download', '/DOWNLOAD', '/Download', '/get', '/GET', '/Get', '/chief', '/CHIEF', '/Chief'],
 }
