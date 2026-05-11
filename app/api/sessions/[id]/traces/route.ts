@@ -45,14 +45,14 @@ export async function GET(req: Request, ctx: { params: { id: string } }) {
 
     // List mode — match by session_id first; fall back to car+track+time-window
     // for backward compat with traces pushed before the FK linker existed.
-    // Widen the session window — many captured sessions have a missing ended_at
-    // or the laps were driven over a long stint. Use a generous +/- 4 hour window
-    // from started_at so we don't miss laps that should belong to this session.
+    // Widen the session window aggressively. Trace timestamps from the desktop
+    // daemon often arrive in the user's local timezone without a TZ offset, so
+    // Postgres stores them as if they were UTC — which can shift them by up to
+    // 12 hours from the session start. ±24h here is overkill but safe; we
+    // narrow by car/track first so cross-session bleed is unlikely.
     const startBase  = session.started_at ? new Date(session.started_at) : null
-    const sessionStart = startBase ? new Date(startBase.getTime() - 30 * 60 * 1000).toISOString() : null
-    const sessionEnd   = session.ended_at
-      ? new Date(new Date(session.ended_at).getTime() + 30 * 60 * 1000).toISOString()
-      : (startBase ? new Date(startBase.getTime() + 4 * 60 * 60 * 1000).toISOString() : new Date().toISOString())
+    const sessionStart = startBase ? new Date(startBase.getTime() - 24 * 60 * 60 * 1000).toISOString() : null
+    const sessionEnd   = startBase ? new Date(startBase.getTime() + 24 * 60 * 60 * 1000).toISOString() : new Date().toISOString()
 
     let { data: traces } = await sb
       .from('sim_lap_traces')
