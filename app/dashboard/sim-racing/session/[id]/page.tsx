@@ -249,48 +249,95 @@ export default function SessionDetailPage() {
         </Section>
       )}
 
-      {/* Coach Dave */}
+      {/* Coach Dave — actionable setup list (no more raw filename dumps) */}
       {coach && (
-        <Section title="Coach Dave Delta" icon={FileInput} accent="#10b981" open={open.coach} onToggle={() => toggle('coach')}>
-          <KV label="Version">{coach.version || 'detected'}</KV>
-          {coach.cdd_setup_files && coach.cdd_setup_files.length > 0 && (
-            <div className="mt-3">
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Stored .cdd Files (downloadable)
-              </div>
-              <div className="space-y-1">
-                {coach.cdd_setup_files.map((f: any, i: number) => (
-                  <a key={i}
-                    href={`/api/setup-files/${id}/${encodeURIComponent(f.name)}`}
-                    download={f.name}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg border hover:bg-emerald-500/10 transition-all"
-                    style={{ background: 'rgba(20,20,32,0.4)', borderColor: 'rgba(16,185,129,0.20)' }}>
-                    <Download size={13} className="text-emerald-400 shrink-0" />
-                    <span className="font-mono text-[12.5px] text-emerald-200 flex-1 truncate">{f.name}</span>
-                    <span className="text-[10px] text-slate-500">{(f.size/1024).toFixed(1)} KB</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-          {!coach.cdd_setup_files?.length && coach.setups && (
-            <div className="mt-2">
-              <div className="text-xs text-slate-500 mb-1 font-bold uppercase">Files (filenames only)</div>
-              {coach.setups.slice(0, 10).map((s: any, i: number) => (
-                <div key={i} className="font-mono text-[12px] text-slate-400">· {s.name}</div>
-              ))}
-            </div>
-          )}
+        <Section title="Coach Dave Setups Available" icon={FileInput} accent="#10b981" open={open.coach} onToggle={() => toggle('coach')}>
+          {(() => {
+            // Filter out internal noise like artifacts.json / vk_swiftshader_icd.json
+            const raw = coach.cdd_setup_files?.length ? coach.cdd_setup_files : (coach.setups || [])
+            const real = raw.filter((f: any) => /\.sto$|\.cdd$/i.test(f.name) && !/swiftshader|artifacts/i.test(f.name))
+            const matchesCar = real.filter((f: any) => {
+              const car = (session.car_name || '').toLowerCase()
+              if (car.includes('late model')) return /lms|lmod|lmst/i.test(f.name)
+              if (car.includes('gt3')) return /gt3/i.test(f.name)
+              return true
+            })
+            return (
+              <>
+                <div className="text-sm text-slate-300 mb-3">
+                  You own <span className="text-emerald-300 font-bold">{real.length}</span> Coach Dave .sto setup files.{' '}
+                  <span className="text-emerald-300 font-bold">{matchesCar.length}</span> match this car class.
+                </div>
+                <div className="space-y-1.5 max-h-[280px] overflow-y-auto">
+                  {matchesCar.length === 0 && <div className="text-xs text-slate-500">No CDA setups match this car class.</div>}
+                  {matchesCar.slice(0, 12).map((f: any, i: number) => (
+                    <div key={i}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg border"
+                      style={{ background: 'rgba(20,20,32,0.4)', borderColor: 'rgba(16,185,129,0.20)' }}>
+                      <span className="font-mono text-[12.5px] text-emerald-200 flex-1 truncate" title={f.name}>{f.name}</span>
+                      <button
+                        onClick={async () => {
+                          setAiLoading(true); setAiAdvice('')
+                          try {
+                            const r = await fetch('/api/ai/ask-chief', {
+                              method: 'POST', headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                question: `Should I use the Coach Dave setup "${f.name}" for this session at ${session.track_name} in the ${session.car_name}? My best lap is ${session.best_lap_time ? session.best_lap_time.toFixed(3) : 'unknown'}s. Pull the actual parameters from this setup file if you have them parsed, compare to what I should be running here, and give me 3 specific changes to try.`,
+                                car: session.car_name, track: session.track_name,
+                              }),
+                            })
+                            const j = await r.json()
+                            setAiAdvice(j.answer || j.hint || j.error || 'No answer')
+                          } finally { setAiLoading(false) }
+                        }}
+                        disabled={aiLoading}
+                        className="px-2.5 py-1 rounded text-[11px] font-bold disabled:opacity-40"
+                        style={{ background: '#10b981', color: 'white' }}>
+                        Analyze
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <Link href="/dashboard/setups" className="text-xs text-emerald-300 hover:underline">
+                    → View full Setup Library (search, filter, download)
+                  </Link>
+                </div>
+              </>
+            )
+          })()}
         </Section>
       )}
 
-      {/* Motion (Sim Magic etc.) */}
+      {/* Motion — show summary count + AI button, not raw filenames */}
       {motion && (
-        <Section title={`Motion — ${motion[0]}`} icon={Wind} accent="#a855f7" open={open.motion} onToggle={() => toggle('motion')}>
-          <KV label="Profiles found">{motion[1].profiles?.length || 0}</KV>
-          {motion[1].profiles && motion[1].profiles.slice(0, 8).map((p: any, i: number) => (
-            <div key={i} className="font-mono text-[12px] text-slate-400">· {p.name}</div>
-          ))}
+        <Section title={`Motion Rig — ${motion[0]}`} icon={Wind} accent="#a855f7" open={open.motion} onToggle={() => toggle('motion')}>
+          <div className="text-sm text-slate-300 mb-3">
+            CHIEF detected <span className="text-purple-300 font-bold">{motion[1].profiles?.length || 0}</span> motion profile files on your rig.
+          </div>
+          <button
+            onClick={async () => {
+              setAiLoading(true); setAiAdvice('')
+              try {
+                const r = await fetch('/api/ai/ask-chief', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    question: `I'm running a ${motion[0]} motion rig. For this car (${session.car_name}) at ${session.track_name}, what motion profile settings should I dial in? Specifically gain, damping, intensity, low-speed bumps. Give me starting values and what to adjust if it feels off.`,
+                    car: session.car_name, track: session.track_name,
+                  }),
+                })
+                const j = await r.json()
+                setAiAdvice(j.answer || j.hint || j.error || 'No answer')
+              } finally { setAiLoading(false) }
+            }}
+            disabled={aiLoading}
+            className="px-3 py-1.5 rounded text-xs font-bold disabled:opacity-40 flex items-center gap-1.5"
+            style={{ background: '#a855f7', color: 'white' }}>
+            <Sparkles size={12} /> Recommend motion settings for this car/track
+          </button>
+          <div className="mt-3 text-[11px] text-slate-500">
+            CHIEF reads each motion profile JSON during capture. To see actual values per session, take a screenshot of your motion control panel during racing — Chief Vision will parse it automatically.
+          </div>
         </Section>
       )}
 

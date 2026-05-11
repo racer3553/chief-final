@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Plus, Clock, Trophy, Filter, Search } from 'lucide-react'
+import ClickableSetupRow from './ClickableSetupRow'
 
 export default async function RaceChiefSetupPage() {
   const supabase = createServerClient()
@@ -54,7 +55,7 @@ export default async function RaceChiefSetupPage() {
             </thead>
             <tbody>
               {setups.map((s: any) => (
-                <tr key={s.id} className="cursor-pointer" onClick={() => window.location.href = `/dashboard/race-chief/setup/${s.id}`}>
+                <ClickableSetupRow key={s.id} href={`/dashboard/race-chief/setup/${s.id}`}>
                   <td>
                     <div className="flex items-center gap-2">
                       {s.is_baseline && <span className="badge-yellow text-[9px]">BASE</span>}
@@ -70,13 +71,9 @@ export default async function RaceChiefSetupPage() {
                   <td className="text-[#888]">{s.feature_finish || '—'}</td>
                   <td className="text-[#555]">{new Date(s.created_at).toLocaleDateString()}</td>
                   <td>
-                    <Link href={`/dashboard/race-chief/setup/${s.id}`}
-                      className="text-[#f5c518] hover:underline text-xs font-mono"
-                      onClick={e => e.stopPropagation()}>
-                      OPEN →
-                    </Link>
+                    <span className="text-[#f5c518] text-xs font-mono">OPEN →</span>
                   </td>
-                </tr>
+                </ClickableSetupRow>
               ))}
             </tbody>
           </table>

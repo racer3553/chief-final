@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       .select('car_name,track_name,layout_name,session_type,started_at,best_lap_time,total_laps,incidents,weather_json,laps_data,hardware_scan,detected_vendors,wheelbase_settings_json,wheel_settings_json,pedal_settings_json,iracing_settings_json')
       .eq('user_id', user.id)
       .order('started_at', { ascending: false })
-      .limit(20)
+      .limit(8)   // was 20 — keeps context window under control
     if (car) q = q.ilike('car_name', `%${car}%`)
     if (track) q = q.ilike('track_name', `%${track}%`)
     const { data: sessions } = await q
@@ -68,11 +68,14 @@ When asked about past sessions or settings:
 DRIVER'S SESSION HISTORY (most recent first, ${ctx.length} sessions):
 ${JSON.stringify(ctx, null, 2)}`
 
+    // Truncate any oversized fields before sending — Anthropic limits per request.
+    const compactSystem = systemPrompt.slice(0, 80000)
+
     const completion = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1500,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: question }],
+      system: compactSystem,
+      messages: [{ role: 'user', content: String(question).slice(0, 8000) }],
     })
 
     const answer = completion.content[0].type === 'text' ? completion.content[0].text : ''
@@ -82,6 +85,16 @@ ${JSON.stringify(ctx, null, 2)}`
       hardware_detected: ctx[0]?.hardware?.detected || [],
     })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    console.error('[ask-chief] error', e)
+    return NextResponse.json({
+      error: e.message,
+      hint: e.status === 401
+        ? 'ANTHROPIC_API_KEY is missing or invalid on Vercel'
+        : e.status === 429
+          ? 'Anthropic rate limit hit — wait a minute and retry'
+          : e.status === 400
+            ? 'Request was malformed (probably too much context). Already trimmed — if you still see this, narrow your question.'
+            : 'Server error — check Vercel function logs',
+    }, { status: 500 })
   }
 }

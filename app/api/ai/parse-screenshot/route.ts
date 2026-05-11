@@ -39,7 +39,7 @@ export async function POST(req: Request) {
 
     const prompt = PROMPTS[vendor] || PROMPTS.generic
 
-    const tryModels = ['claude-haiku-4-5', 'claude-sonnet-4-5']
+    const tryModels = ['claude-haiku-4-5', 'claude-sonnet-4-6']
     let completion: any = null
     let lastErr: any = null
     for (const model of tryModels) {

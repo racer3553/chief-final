@@ -31,7 +31,7 @@ export default function DownloadPage() {
           <li>Double-click ChiefLogger.exe. If Windows shows SmartScreen, click More info then Run anyway.</li>
           <li>Login with your Chief Racing account credentials.</li>
           <li>Launch iRacing as normal. Chief detects sessions automatically.</li>
-          <li>View live data on your <Link href="/dashboard/sim-racing/live-status" className="text-[#f5c518] underline">Live Status</Link> dashboard.</li>
+          <li>View every captured session and lap telemetry on the <Link href="/dashboard/sessions" className="text-[#f5c518] underline">Sessions + Telemetry</Link> page.</li>
         </ol>
       </div>
     </div>

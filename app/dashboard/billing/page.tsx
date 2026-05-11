@@ -53,10 +53,18 @@ export default function BillingPage() {
     </div>
   )
 
-  const isTrialing = profile?.plan === 'trial'
-  const trialDaysLeft = profile?.trial_ends_at
-    ? Math.max(0, Math.ceil((new Date(profile.trial_ends_at).getTime() - Date.now()) / 86400000))
-    : 0
+  // Schema-tolerant field reads — profile rows may have any of these names.
+  // Falls back gracefully so the page never shows nonsense.
+  const currentPlan = (profile?.subscription_plan || profile?.plan || 'trial').toLowerCase()
+  const subscriptionStatus = profile?.subscription_status || (currentPlan === 'trial' ? 'trialing' : 'active')
+  const stripeSubId = profile?.stripe_subscription_id || profile?.stripe_customer_id
+  const trialEndsAt = profile?.trial_ends_at || profile?.trial_end || profile?.trial_expires_at
+  const isTrialing = currentPlan === 'trial' || subscriptionStatus === 'trialing'
+  const trialDaysLeft = trialEndsAt
+    ? Math.max(0, Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / 86400000))
+    : null
+  const carsLimit   = profile?.cars_limit   ?? (currentPlan === 'starter' ? 3  : currentPlan === 'pro' ? 10 : currentPlan === 'elite' ? 999 : 1)
+  const tracksLimit = profile?.tracks_limit ?? (currentPlan === 'starter' ? 5  : currentPlan === 'pro' ? 999 : currentPlan === 'elite' ? 999 : 3)
 
   return (
     <div className="max-w-4xl space-y-6 animate-in">
@@ -71,20 +79,25 @@ export default function BillingPage() {
         <div className="flex items-start justify-between">
           <div>
             <div className="font-display text-xl text-white tracking-wide mb-1">
-              CURRENT PLAN: <span className="text-[#f5c518]">{(profile?.plan || 'TRIAL').toUpperCase()}</span>
+              CURRENT PLAN: <span className="text-[#f5c518]">{currentPlan.toUpperCase()}</span>
             </div>
             <div className="font-mono text-sm text-[#888]">
-              Status: <span className={profile?.subscription_status === 'active' ? 'text-[#39ff14]' : profile?.subscription_status === 'trialing' ? 'text-[#f5c518]' : 'text-[#ff2d2d]'}>
-                {profile?.subscription_status || 'trial'}
+              Status: <span className={subscriptionStatus === 'active' ? 'text-[#39ff14]' : subscriptionStatus === 'trialing' ? 'text-[#f5c518]' : 'text-[#ff2d2d]'}>
+                {subscriptionStatus}
               </span>
             </div>
-            {isTrialing && (
+            {isTrialing && trialDaysLeft !== null && (
               <div className="mt-2 text-sm text-[#f5c518]">
                 {trialDaysLeft > 0 ? `${trialDaysLeft} days left in trial` : 'Trial expired — upgrade to continue'}
               </div>
             )}
+            {isTrialing && trialDaysLeft === null && (
+              <div className="mt-2 text-sm text-[#f5c518]">
+                Free beta access — pick a plan when you're ready to keep going
+              </div>
+            )}
           </div>
-          {profile?.stripe_subscription_id && (
+          {stripeSubId && (
             <button onClick={handlePortal} disabled={portalLoading}
               className="flex items-center gap-2 btn-ghost">
               {portalLoading ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
@@ -97,11 +110,11 @@ export default function BillingPage() {
       {/* Plans */}
       <div>
         <h2 className="font-display text-xl text-white tracking-wide mb-4">
-          {isTrialing || !profile?.stripe_subscription_id ? 'CHOOSE YOUR PLAN' : 'CHANGE PLAN'}
+          {isTrialing || !stripeSubId ? 'CHOOSE YOUR PLAN' : 'CHANGE PLAN'}
         </h2>
         <div className="grid md:grid-cols-3 gap-4">
           {PLANS.map(plan => {
-            const isCurrent = profile?.plan === plan.id
+            const isCurrent = currentPlan === plan.id
             return (
               <div key={plan.id} className={`relative rounded-lg p-5 ${
                 plan.popular ? 'bg-[#111] border-2 border-[#f5c518]' : 'chief-panel'
@@ -145,9 +158,9 @@ export default function BillingPage() {
         <div className="font-display text-sm text-white tracking-widest mb-4">YOUR LIMITS</div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {[
-            { label: 'Cars', used: 0, limit: profile?.cars_limit },
-            { label: 'Tracks', used: 0, limit: profile?.tracks_limit },
-            { label: 'Plan', used: null, limit: null, value: (profile?.plan || 'trial').toUpperCase() },
+            { label: 'Cars', used: 0, limit: carsLimit },
+            { label: 'Tracks', used: 0, limit: tracksLimit },
+            { label: 'Plan', used: null, limit: null, value: currentPlan.toUpperCase() },
           ].map(item => (
             <div key={item.label} className="bg-[#0d0d0d] border border-[#1a1a1a] rounded p-3">
               <div className="chief-label">{item.label}</div>
