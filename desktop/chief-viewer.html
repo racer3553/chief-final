@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CHIEF — Telemetry Viewer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #11151c;
+    --panel-2: #161b25;
+    --border: #1f2733;
+    --text: #d6dde8;
+    --muted: #6b7689;
+    --accent: #4fc3ff;
+    --accent-warm: #ffb840;
+    --good: #1bd05a;
+    --bad: #ef4d4d;
+    --purple: #a855f7;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 13px; }
+  .app { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
+  .sidebar { background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-width: 0; }
+  .header { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .header .logo { font-weight: 700; letter-spacing: 1px; color: var(--accent); }
+  .header .ver { color: var(--muted); font-size: 11px; }
+  .pickers { padding: 12px 14px; border-bottom: 1px solid var(--border); display: grid; gap: 8px; }
+  .pickers label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .pickers select { width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 4px; padding: 6px 8px; font-size: 12px; }
+  .laps { flex: 1; overflow-y: auto; }
+  .laps table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .laps th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 500;
+    text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .laps td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .laps tr { cursor: pointer; }
+  .laps tr:hover { background: rgba(79, 195, 255, 0.06); }
+  .laps tr.is-mine { background: rgba(79, 195, 255, 0.10); }
+  .laps tr.is-ref  { background: rgba(255, 184, 64, 0.08); }
+  .laps tr.is-best td.time { color: var(--purple); font-weight: 600; }
+  .laps td.time { font-feature-settings: "tnum"; font-variant-numeric: tabular-nums; }
+
+  .main { display: grid; grid-template-rows: auto 1fr auto; min-width: 0; min-height: 0; }
+  .topbar { display: flex; gap: 24px; padding: 12px 18px; border-bottom: 1px solid var(--border); align-items: center; flex-wrap: wrap; }
+  .stat { display: flex; flex-direction: column; gap: 2px; }
+  .stat .l { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat .v { font-size: 18px; font-weight: 600; font-feature-settings: "tnum"; }
+  .stat.mine .v { color: var(--accent); }
+  .stat.ref .v  { color: var(--accent-warm); }
+  .stat.delta-pos .v { color: var(--bad); }
+  .stat.delta-neg .v { color: var(--good); }
+
+  .charts { padding: 8px 14px 0; overflow: auto; min-height: 0; }
+  .chart-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; padding: 6px 10px 4px; }
+  .chart-wrap .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); padding: 2px 0 4px; }
+  .chart-wrap canvas { display: block; width: 100% !important; }
+
+  .footer-strip { display: flex; gap: 4px; padding: 10px 14px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .sector-pill { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-feature-settings: "tnum";
+    background: var(--panel); border: 1px solid var(--border); }
+  .sector-pill.good { background: rgba(27, 208, 90, 0.15); color: var(--good); border-color: rgba(27,208,90,0.4); }
+  .sector-pill.bad  { background: rgba(239, 77, 77, 0.15); color: var(--bad);  border-color: rgba(239,77,77,0.4); }
+
+  .empty { padding: 30px; color: var(--muted); text-align: center; }
+  .empty code { background: var(--panel-2); padding: 2px 6px; border-radius: 3px; }
+
+  .insights { padding: 10px 14px; border-top: 1px solid var(--border); background: var(--panel-2); display: none; }
+  .insights.has-data { display: block; }
+  .insights h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.6px; }
+  .insights ul { margin: 0; padding-left: 18px; }
+  .insights li { margin: 3px 0; line-height: 1.4; }
+  .insights .corner { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="header">
+      <span class="logo">CHIEF</span>
+      <span class="ver">telemetry viewer</span>
+    </div>
+    <div class="pickers">
+      <div>
+        <label for="pick-mine">My Lap</label>
+        <select id="pick-mine"></select>
+      </div>
+      <div>
+        <label for="pick-ref">Reference Lap</label>
+        <select id="pick-ref"></select>
+      </div>
+      <div>
+        <label for="pick-pro">Pro / Reference Pack <span id="pro-count" style="color:var(--muted)"></span></label>
+        <select id="pick-pro">
+          <option value="">— use selected lap above —</option>
+        </select>
+      </div>
+    </div>
+    <div class="laps">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Lap Time</th><th>When</th></tr>
+        </thead>
+        <tbody id="laps-body"></tbody>
+      </table>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <div class="topbar">
+      <div class="stat mine"><div class="l">My Lap</div><div class="v" id="stat-mine">—</div></div>
+      <div class="stat ref"><div class="l">Reference</div><div class="v" id="stat-ref">—</div></div>
+      <div class="stat" id="stat-delta-wrap"><div class="l">Delta</div><div class="v" id="stat-delta">—</div></div>
+      <div class="stat"><div class="l">Top Speed (mine)</div><div class="v" id="stat-vmax-mine">—</div></div>
+      <div class="stat"><div class="l">Top Speed (ref)</div><div class="v" id="stat-vmax-ref">—</div></div>
+      <div class="stat"><div class="l">Samples</div><div class="v" id="stat-samples">—</div></div>
+    </div>
+
+    <div class="charts" id="charts">
+      <div class="empty" id="empty">
+        No lap traces yet. Drive a lap with <code>CHIEF-START.bat</code> running and CHIEF will dump traces to
+        <code>~/Documents/ChiefAutoCapture/traces/</code>. Refresh this page after each lap.
+      </div>
+      <div class="chart-wrap" data-key="map" style="display:none">
+        <div class="label" style="display:flex;justify-content:space-between;align-items:center">
+          <span>Track Map &nbsp;&nbsp;<span style="color:var(--good)">green = gaining</span> &nbsp; <span style="color:var(--bad)">red = losing</span></span>
+          <span id="map-info" style="color:var(--muted);font-size:10px;text-transform:none;letter-spacing:0"></span>
+        </div>
+        <svg id="track-svg" viewBox="0 0 800 380" style="width:100%;height:380px;background:#0b0d12;border-radius:4px"></svg>
+      </div>
+      <div class="chart-wrap" data-key="delta"   style="display:none"><div class="label">Delta vs Reference (s)</div><canvas id="c-delta"   height="70"></canvas></div>
+      <div class="chart-wrap" data-key="speed"   style="display:none"><div class="label">Speed (mph)</div>           <canvas id="c-speed"   height="100"></canvas></div>
+      <div class="chart-wrap" data-key="throttle" style="display:none"><div class="label">Throttle %</div>            <canvas id="c-throttle" height="80"></canvas></div>
+      <div class="chart-wrap" data-key="brake"   style="display:none"><div class="label">Brake %</div>               <canvas id="c-brake"   height="80"></canvas></div>
+      <div class="chart-wrap" data-key="steer"   style="display:none"><div class="label">Steering (rad)</div>        <canvas id="c-steer"   height="80"></canvas></div>
+      <div class="chart-wrap" data-key="gear"    style="display:none"><div class="label">Gear</div>                  <canvas id="c-gear"    height="60"></canvas></div>
+      <div class="chart-wrap" data-key="rpm"     style="display:none"><div class="label">RPM</div>                   <canvas id="c-rpm"     height="80"></canvas></div>
+    </div>
+
+    <div class="insights" id="insights">
+      <h4>Corner-by-Corner Insights — biggest weaknesses on this lap</h4>
+      <ul id="insights-list"></ul>
+    </div>
+
+    <div class="footer-strip" id="sectors"></div>
+  </main>
+
+</div>
+
+<script>
+const fmtTime = s => {
+  if (s == null || isNaN(s)) return "—";
+  const m = Math.floor(s / 60);
+  const sec = (s - m * 60);
+  return m > 0 ? `${m}:${sec.toFixed(3).padStart(6,"0")}` : sec.toFixed(3);
+};
+const fmtSigned = (s, digits=3) => {
+  if (s == null || isNaN(s)) return "—";
+  const v = s.toFixed(digits);
+  return s >= 0 ? `+${v}` : v;
+};
+
+let LAPS = [];           // metadata list (user-captured laps)
+let REFS = [];           // metadata list (reference packs)
+const LAP_CACHE = {};    // file -> full payload (user laps)
+const REF_CACHE = {};    // file -> full payload (reference packs)
+let charts = {};
+
+async function fetchLaps() {
+  const r = await fetch("/api/laps");
+  return await r.json();
+}
+async function fetchLap(file) {
+  if (LAP_CACHE[file]) return LAP_CACHE[file];
+  const r = await fetch("/api/lap/" + encodeURIComponent(file));
+  const j = await r.json();
+  LAP_CACHE[file] = j;
+  return j;
+}
+async function fetchReferences() {
+  const r = await fetch("/api/references");
+  return await r.json();
+}
+async function fetchReference(file) {
+  if (REF_CACHE[file]) return REF_CACHE[file];
+  const r = await fetch("/api/reference/" + encodeURIComponent(file));
+  const j = await r.json();
+  REF_CACHE[file] = j;
+  return j;
+}
+
+function fillReferenceSelector() {
+  const sel = document.getElementById("pick-pro");
+  document.getElementById("pro-count").textContent = REFS.length ? `(${REFS.length} available)` : "(none yet)";
+  // Keep the leading "use selected lap above" option
+  sel.innerHTML = `<option value="">— use selected lap above —</option>`;
+  for (const r of REFS) {
+    const trk = [r.track, r.track_config].filter(Boolean).join(" / ");
+    const label = `${r.car || "?"} @ ${trk || "?"} — ${fmtTime(r.lap_time)} (${r.driver || r.source || "ref"})`;
+    sel.insertAdjacentHTML("beforeend",
+      `<option value="${r.file}">${label}</option>`);
+  }
+}
+
+function renderLapTable() {
+  const body = document.getElementById("laps-body");
+  body.innerHTML = "";
+  // Best-lap detection (lowest lap_time)
+  let best = null;
+  for (const l of LAPS) {
+    if (l.lap_time && (!best || l.lap_time < best)) best = l.lap_time;
+  }
+  for (const l of LAPS) {
+    const tr = document.createElement("tr");
+    tr.dataset.file = l.file;
+    if (l.lap_time === best) tr.classList.add("is-best");
+    const when = l.ts ? new Date(l.ts).toLocaleString() : "—";
+    tr.innerHTML = `
+      <td>${l.lap ?? "?"}</td>
+      <td class="time">${fmtTime(l.lap_time)}</td>
+      <td style="color:var(--muted)">${when}</td>`;
+    tr.addEventListener("click", () => {
+      // Click cycles: first click sets My Lap, second click sets Reference
+      const mineSel = document.getElementById("pick-mine");
+      const refSel  = document.getElementById("pick-ref");
+      if (mineSel.value !== l.file) mineSel.value = l.file;
+      else                          refSel.value  = l.file;
+      mineSel.dispatchEvent(new Event("change"));
+    });
+    body.appendChild(tr);
+  }
+}
+
+function fillSelectors() {
+  const m = document.getElementById("pick-mine");
+  const r = document.getElementById("pick-ref");
+  m.innerHTML = ""; r.innerHTML = "";
+  for (const l of LAPS) {
+    const opt = `<option value="${l.file}">L${l.lap ?? "?"} — ${fmtTime(l.lap_time)} — ${new Date(l.ts).toLocaleTimeString()}</option>`;
+    m.insertAdjacentHTML("beforeend", opt);
+    r.insertAdjacentHTML("beforeend", opt);
+  }
+  // Default: newest = mine, fastest = reference
+  if (LAPS.length > 0) {
+    m.value = LAPS[0].file;
+    let best = LAPS[0];
+    for (const l of LAPS) if (l.lap_time && (!best.lap_time || l.lap_time < best.lap_time)) best = l;
+    r.value = best.file;
+  }
+}
+
+function highlightActiveRows() {
+  const mine = document.getElementById("pick-mine").value;
+  const ref  = document.getElementById("pick-ref").value;
+  for (const tr of document.querySelectorAll("#laps-body tr")) {
+    tr.classList.toggle("is-mine", tr.dataset.file === mine);
+    tr.classList.toggle("is-ref",  tr.dataset.file === ref);
+  }
+}
+
+// Resample a trace onto an even grid of pct ∈ [0,1] so we can compare lap-vs-lap
+// at the same track location. Returns arrays for each channel.
+function resampleByPct(samples, N=400) {
+  const out = { pct: new Array(N), speed: new Array(N), throttle: new Array(N), brake: new Array(N),
+                steer: new Array(N), gear: new Array(N), rpm: new Array(N), t: new Array(N) };
+  if (!samples || samples.length === 0) return out;
+  // Sort by pct asc — handles wrap by ignoring samples where pct decreases
+  const sorted = [...samples].filter(s => s && typeof s.pct === "number").sort((a,b) => a.pct - b.pct);
+  if (sorted.length === 0) return out;
+  let j = 0;
+  for (let i = 0; i < N; i++) {
+    const p = i / (N - 1);
+    while (j < sorted.length - 1 && sorted[j+1].pct < p) j++;
+    const s = sorted[j];
+    out.pct[i] = p;
+    out.speed[i]    = s.speed    ?? 0;
+    out.throttle[i] = (s.throttle ?? 0) * 100;
+    out.brake[i]    = (s.brake    ?? 0) * 100;
+    out.steer[i]    = s.steer    ?? 0;
+    out.gear[i]     = s.gear     ?? 0;
+    out.rpm[i]      = s.rpm      ?? 0;
+    out.t[i]        = s.t        ?? 0;
+  }
+  return out;
+}
+
+// Compute delta-time (mine vs ref) at each pct: (t_mine_at_pct - t0_mine) - (t_ref_at_pct - t0_ref)
+function computeDelta(mine, ref) {
+  const N = mine.pct.length;
+  const out = new Array(N);
+  if (!mine.t.length || !ref.t.length) return out.fill(0);
+  const t0m = mine.t[0], t0r = ref.t[0];
+  for (let i = 0; i < N; i++) {
+    out[i] = (mine.t[i] - t0m) - (ref.t[i] - t0r);
+  }
+  return out;
+}
+
+function makeChart(canvasId, label, mineData, refData, color, fillBelow=false, opts={}) {
+  const ctx = document.getElementById(canvasId).getContext("2d");
+  if (charts[canvasId]) charts[canvasId].destroy();
+  charts[canvasId] = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: mineData.map((_, i) => (i / (mineData.length - 1) * 100).toFixed(0)),
+      datasets: [
+        { label: "Mine", data: mineData, borderColor: color || "#4fc3ff", borderWidth: 1.4,
+          pointRadius: 0, tension: 0.1, fill: fillBelow ? "origin" : false,
+          backgroundColor: fillBelow ? (color + "22") : undefined },
+        { label: "Reference", data: refData, borderColor: "#ffb840", borderWidth: 1.2,
+          pointRadius: 0, tension: 0.1, borderDash: [4, 3] },
+      ]
+    },
+    options: {
+      animation: false, responsive: true, maintainAspectRatio: false,
+      interaction: { intersect: false, mode: "index" },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          enabled: true,
+          callbacks: { title: items => `pct ${items[0].label}%` }
+        }
+      },
+      scales: {
+        x: { display: false },
+        y: { ticks: { color: "#6b7689", font: { size: 10 } }, grid: { color: "rgba(255,255,255,0.04)" }, ...(opts.y || {}) }
+      }
+    }
+  });
+}
+
+function makeDeltaChart(canvasId, deltaArr) {
+  const ctx = document.getElementById(canvasId).getContext("2d");
+  if (charts[canvasId]) charts[canvasId].destroy();
+  // Color points red where losing (positive delta) and green where gaining
+  charts[canvasId] = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: deltaArr.map((_, i) => (i / (deltaArr.length - 1) * 100).toFixed(0)),
+      datasets: [
+        { label: "Δ (s)", data: deltaArr,
+          borderColor: ctx => {
+            const v = ctx.p1?.parsed?.y ?? 0;
+            return v >= 0 ? "#ef4d4d" : "#1bd05a";
+          },
+          segment: {
+            borderColor: ctx => (ctx.p1.parsed.y >= 0 ? "#ef4d4d" : "#1bd05a")
+          },
+          borderWidth: 1.5, pointRadius: 0, tension: 0.1, fill: "origin",
+          backgroundColor: "rgba(168, 85, 247, 0.10)" }
+      ]
+    },
+    options: {
+      animation: false, responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { display: false },
+        y: { ticks: { color: "#6b7689", font: { size: 10 },
+            callback: v => (v >= 0 ? "+" : "") + v.toFixed(2) },
+          grid: { color: "rgba(255,255,255,0.04)" } }
+      }
+    }
+  });
+}
+
+// Build a raw position array (lat, lon, t, pct) from a payload — used for the
+// track map. We DON'T resample by pct here because the map looks better with
+// natural sampling density.
+function rawPositions(payload) {
+  const samples = payload?.samples || [];
+  const out = [];
+  for (const s of samples) {
+    if (s && typeof s.lat === "number" && typeof s.lon === "number" && (s.lat !== 0 || s.lon !== 0)) {
+      out.push({ lat: s.lat, lon: s.lon, pct: s.pct ?? 0, t: s.t ?? 0 });
+    }
+  }
+  return out;
+}
+
+// Project an array of {lat,lon} to {x,y} pixel coords inside an SVG viewBox.
+// Uses simple equirectangular projection (good enough for a single track).
+function projectToBox(points, padding=20, w=800, h=380) {
+  if (!points.length) return [];
+  let minLat=Infinity, maxLat=-Infinity, minLon=Infinity, maxLon=-Infinity;
+  for (const p of points) {
+    if (p.lat < minLat) minLat = p.lat;
+    if (p.lat > maxLat) maxLat = p.lat;
+    if (p.lon < minLon) minLon = p.lon;
+    if (p.lon > maxLon) maxLon = p.lon;
+  }
+  // Stretch lon by cos(lat) so the track isn't squashed in horizontal axis
+  const meanLat = (minLat + maxLat) / 2;
+  const lonScale = Math.cos(meanLat * Math.PI / 180);
+  const dLat = (maxLat - minLat) || 1e-6;
+  const dLon = (maxLon - minLon) * lonScale || 1e-6;
+  const ratioPts = dLon / dLat;
+  const ratioBox = (w - 2*padding) / (h - 2*padding);
+  let scaleX, scaleY;
+  if (ratioPts > ratioBox) {
+    scaleX = (w - 2*padding) / dLon;
+    scaleY = scaleX;
+  } else {
+    scaleY = (h - 2*padding) / dLat;
+    scaleX = scaleY;
+  }
+  // Centre the track
+  const usedW = dLon * scaleX, usedH = dLat * scaleY;
+  const offX = (w - usedW) / 2;
+  const offY = (h - usedH) / 2;
+  return points.map(p => ({
+    x: offX + (p.lon - minLon) * lonScale * scaleX,
+    y: h - (offY + (p.lat - minLat) * scaleY),  // flip Y so north is up
+    pct: p.pct, t: p.t,
+  }));
+}
+
+// Render the SVG track map. Color each segment by the delta at that pct
+// (green = mine ahead, red = mine behind).
+function renderTrackMap(minePayload, refPayload, deltaByPct) {
+  const svg = document.getElementById("track-svg");
+  svg.innerHTML = "";
+  const minePts = rawPositions(minePayload);
+  if (minePts.length < 10) {
+    svg.innerHTML = `<text x="400" y="190" text-anchor="middle" fill="#6b7689" font-size="12">
+      No GPS in trace yet. Drive a lap with the latest live-chief.py to capture lat/lon.</text>`;
+    document.getElementById("map-info").textContent = "";
+    return;
+  }
+  const projected = projectToBox(minePts);
+  // Build a path with per-segment color based on delta interpolation by pct.
+  const N = deltaByPct.length;
+  function deltaAtPct(p) {
+    if (N === 0) return 0;
+    const i = Math.max(0, Math.min(N-1, Math.floor(p * N)));
+    return deltaByPct[i] || 0;
+  }
+  // Background (reference) line — draw first so it sits underneath
+  if (refPayload) {
+    const refPts = rawPositions(refPayload);
+    if (refPts.length > 10) {
+      // Project reference using the SAME bbox as mine (re-project together for alignment)
+      const all = minePts.concat(refPts);
+      const allP = projectToBox(all);
+      const refP = allP.slice(minePts.length);
+      const mineP2 = allP.slice(0, minePts.length);
+      // Reference dashed line
+      let d = `M ${refP[0].x.toFixed(1)} ${refP[0].y.toFixed(1)}`;
+      for (let i = 1; i < refP.length; i++) d += ` L ${refP[i].x.toFixed(1)} ${refP[i].y.toFixed(1)}`;
+      svg.insertAdjacentHTML("beforeend",
+        `<path d="${d}" fill="none" stroke="#ffb840" stroke-width="1.6" stroke-dasharray="4 3" opacity="0.55"/>`);
+      // Now draw MY line in color-coded segments (using projection that includes ref)
+      for (let i = 1; i < mineP2.length; i++) {
+        const a = mineP2[i-1], b = mineP2[i];
+        const dlt = deltaAtPct((a.pct + b.pct) / 2);
+        const col = dlt < -0.005 ? "#1bd05a" : (dlt > 0.005 ? "#ef4d4d" : "#9aa6b8");
+        svg.insertAdjacentHTML("beforeend",
+          `<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${col}" stroke-width="3" stroke-linecap="round"/>`);
+      }
+      // Start marker
+      svg.insertAdjacentHTML("beforeend",
+        `<circle cx="${mineP2[0].x.toFixed(1)}" cy="${mineP2[0].y.toFixed(1)}" r="4" fill="#4fc3ff"/>`);
+    }
+  } else {
+    // No reference — just draw my line in single color
+    let d = `M ${projected[0].x.toFixed(1)} ${projected[0].y.toFixed(1)}`;
+    for (let i = 1; i < projected.length; i++) d += ` L ${projected[i].x.toFixed(1)} ${projected[i].y.toFixed(1)}`;
+    svg.insertAdjacentHTML("beforeend",
+      `<path d="${d}" fill="none" stroke="#4fc3ff" stroke-width="2.2"/>`);
+    svg.insertAdjacentHTML("beforeend",
+      `<circle cx="${projected[0].x.toFixed(1)}" cy="${projected[0].y.toFixed(1)}" r="4" fill="#4fc3ff"/>`);
+  }
+  document.getElementById("map-info").textContent =
+    `${minePayload.track || ""} ${minePayload.track_config || ""} · ${minePts.length} GPS samples`;
+}
+
+function renderSectors(deltaArr) {
+  // Split into 8 sectors like Delta's SQ1..SQ8 strip — show cumulative delta per sector
+  const strip = document.getElementById("sectors");
+  strip.innerHTML = "";
+  const N = deltaArr.length;
+  if (N === 0) return;
+  const sectors = 8;
+  for (let s = 0; s < sectors; s++) {
+    const lo = Math.floor(s * N / sectors);
+    const hi = Math.floor((s + 1) * N / sectors) - 1;
+    const sectorDelta = deltaArr[hi] - deltaArr[lo];
+    const cls = sectorDelta < -0.02 ? "good" : (sectorDelta > 0.02 ? "bad" : "");
+    const label = `SQ${s+1} ${fmtSigned(sectorDelta, 2)}s`;
+    const span = document.createElement("span");
+    span.className = "sector-pill " + cls;
+    span.textContent = label;
+    strip.appendChild(span);
+  }
+}
+
+function renderInsights(mine, ref) {
+  // Highlight the corners (brake-zone start) where you lost the most time vs reference.
+  // Simple algorithm: detect brake zones in MY trace; for each, compare entry/apex/exit speeds.
+  const list = document.getElementById("insights-list");
+  list.innerHTML = "";
+  const N = mine.pct.length;
+  // Find brake zones (continuous brake>20%) in my lap
+  const zones = [];
+  let zStart = -1;
+  for (let i = 0; i < N; i++) {
+    const b = mine.brake[i];
+    if (b > 20 && zStart < 0) zStart = i;
+    else if (b < 5 && zStart >= 0) {
+      zones.push([zStart, i - 1]);
+      zStart = -1;
+    }
+  }
+  // Take top-3 zones by time loss in their corner window
+  const findings = [];
+  for (const [a, b] of zones) {
+    // Sample a window from a-2% to b+5% of lap
+    const aPct = mine.pct[a], bPct = mine.pct[b];
+    const apexI = a + Math.floor((b - a) / 2);
+    const exitI = Math.min(N - 1, b + Math.floor(N * 0.02));
+    const lossSeg = (mine.t[exitI] - mine.t[a]) - (ref.t[exitI] - ref.t[a]);
+    const entryDelta = ref.speed[a] - mine.speed[a];
+    const apexDelta  = ref.speed[apexI] - mine.speed[apexI];
+    const exitDelta  = ref.speed[exitI] - mine.speed[exitI];
+    const gearAtApex_mine = mine.gear[apexI];
+    const gearAtApex_ref  = ref.gear[apexI];
+    const peakBrake_mine = Math.max(...mine.brake.slice(a, b+1));
+    const peakBrake_ref  = Math.max(...ref.brake.slice(a, b+1));
+    findings.push({
+      pct: aPct, lossSeg, entryDelta, apexDelta, exitDelta,
+      gearDelta: gearAtApex_ref - gearAtApex_mine,
+      brakeDelta: peakBrake_mine - peakBrake_ref,
+    });
+  }
+  findings.sort((a, b) => b.lossSeg - a.lossSeg);
+  const top = findings.slice(0, 5);
+  if (top.length === 0) {
+    list.innerHTML = `<li style="color:var(--muted)">No clear weakness — your line tracks the reference closely. Keep building.</li>`;
+    document.getElementById("insights").classList.add("has-data");
+    return;
+  }
+  for (const f of top) {
+    const issues = [];
+    if (f.entryDelta > 3) issues.push(`entry ${f.entryDelta.toFixed(0)}mph slow`);
+    if (f.apexDelta  > 2) issues.push(`apex ${f.apexDelta.toFixed(0)}mph slow`);
+    if (f.exitDelta  > 2) issues.push(`exit ${f.exitDelta.toFixed(0)}mph slow`);
+    if (f.brakeDelta > 5) issues.push(`brake ${f.brakeDelta.toFixed(0)}% harder`);
+    if (f.gearDelta >= 1) issues.push(`one gear low`);
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="corner">Corner @ ${(f.pct*100).toFixed(0)}%</span> &nbsp;lost <b>${f.lossSeg.toFixed(2)}s</b> &nbsp;— ${issues.join(", ") || "line/exit"}`;
+    list.appendChild(li);
+  }
+  document.getElementById("insights").classList.add("has-data");
+}
+
+async function render() {
+  highlightActiveRows();
+  const mineFile = document.getElementById("pick-mine").value;
+  const refFile  = document.getElementById("pick-ref").value;
+  const proFile  = document.getElementById("pick-pro").value;
+  if (!mineFile) return;
+  // Pro pack overrides the user-selected reference if one is picked.
+  const minePayload = await fetchLap(mineFile);
+  let refPayload;
+  if (proFile) {
+    refPayload = await fetchReference(proFile);
+    document.getElementById("stat-ref").style.color = "var(--purple)";
+  } else if (refFile) {
+    refPayload = await fetchLap(refFile);
+    document.getElementById("stat-ref").style.color = "";
+  }
+  if (!minePayload || !refPayload) return;
+  const mine = resampleByPct(minePayload.samples);
+  const ref  = resampleByPct(refPayload.samples);
+  const delta = computeDelta(mine, ref);
+
+  document.getElementById("empty").style.display = "none";
+  for (const w of document.querySelectorAll(".chart-wrap")) w.style.display = "block";
+
+  // Top stats
+  document.getElementById("stat-mine").textContent = fmtTime(minePayload.lap_time);
+  document.getElementById("stat-ref").textContent  = fmtTime(refPayload.lap_time);
+  const finalDelta = delta.length ? delta[delta.length - 1] : 0;
+  const dEl = document.getElementById("stat-delta");
+  dEl.textContent = fmtSigned(finalDelta, 3) + "s";
+  document.getElementById("stat-delta-wrap").className = "stat " + (finalDelta >= 0 ? "delta-pos" : "delta-neg");
+  document.getElementById("stat-vmax-mine").textContent = Math.max(...mine.speed).toFixed(1) + " mph";
+  document.getElementById("stat-vmax-ref").textContent  = Math.max(...ref.speed).toFixed(1) + " mph";
+  document.getElementById("stat-samples").textContent =
+    `${(minePayload.samples || []).length} / ${(refPayload.samples || []).length}`;
+
+  // Track map (SVG)
+  renderTrackMap(minePayload, refPayload, delta);
+
+  // Charts
+  makeDeltaChart("c-delta", delta);
+  makeChart("c-speed",    "Speed",    mine.speed,    ref.speed,    "#4fc3ff");
+  makeChart("c-throttle", "Throttle", mine.throttle, ref.throttle, "#1bd05a", true, { y: { min: 0, max: 100 } });
+  makeChart("c-brake",    "Brake",    mine.brake,    ref.brake,    "#ef4d4d", true, { y: { min: 0, max: 100 } });
+  makeChart("c-steer",    "Steer",    mine.steer,    ref.steer,    "#a855f7");
+  makeChart("c-gear",     "Gear",     mine.gear,     ref.gear,     "#ffb840", false, { y: { ticks: { stepSize: 1 } } });
+  makeChart("c-rpm",      "RPM",      mine.rpm,      ref.rpm,      "#ff6688");
+
+  renderSectors(delta);
+  renderInsights(mine, ref);
+}
+
+document.getElementById("pick-mine").addEventListener("change", render);
+document.getElementById("pick-ref").addEventListener("change", render);
+document.getElementById("pick-pro").addEventListener("change", render);
+
+(async function init() {
+  [LAPS, REFS] = await Promise.all([fetchLaps(), fetchReferences()]);
+  fillReferenceSelector();
+  if (!LAPS.length) {
+    document.getElementById("empty").style.display = "block";
+    return;
+  }
+  fillSelectors();
+  renderLapTable();
+  render();
+})();
+</script>
+</body>
+</html>

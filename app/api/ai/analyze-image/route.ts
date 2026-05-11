@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     const systemPrompt = getImageAnalysisPrompt(context)
 
     const response = await anthropic.messages.create({
-      model: 'claude-opus-4-6',
+      model: 'claude-sonnet-4-5',
       max_tokens: 1024,
       system: systemPrompt,
       messages: [

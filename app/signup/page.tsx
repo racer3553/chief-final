@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { CheckCircle, Loader2 } from 'lucide-react'
+import ChiefLogo from '@/components/shared/ChiefLogo'
 
 const PLANS = [
   { id: 'starter', label: 'Starter', price: '$19/mo' },
@@ -40,9 +41,12 @@ function SignupForm() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] checker-bg flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-lg">
-        <Link href="/" className="block text-center mb-8">
-          <div className="font-display text-4xl text-[#f5c518] tracking-widest">CHIEF</div>
-          <div className="font-mono-chief text-xs text-[#555] tracking-widest">BY WALKER SPORTS</div>
+        <Link href="/" className="flex flex-col items-center gap-3 mb-8">
+          <ChiefLogo size={72} variant="mark" />
+          <div className="text-center">
+            <div className="font-display text-4xl text-[#f5c518] tracking-[0.2em]">CHIEF</div>
+            <div className="font-mono-chief text-xs text-[#555] tracking-[0.22em] mt-1">BY WALKER SPORTS</div>
+          </div>
         </Link>
         <div className="chief-panel-glow p-8 rounded-lg">
           <div className="chief-accent-line mb-6" />

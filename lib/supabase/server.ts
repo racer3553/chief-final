@@ -20,6 +20,9 @@ export function createServerClient() {
   )
 }
 
+// Alias so `import { createClient } from '@/lib/supabase/server'` works everywhere
+export const createClient = createServerClient
+
 export function createServiceClient() {
   const cookieStore = cookies()
   return createSSRClient(
