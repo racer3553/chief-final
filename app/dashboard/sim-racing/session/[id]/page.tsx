@@ -62,6 +62,54 @@ export default function SessionDetailPage() {
     setAiLoading(false)
   }
 
+  // ---- Screenshot fetching + AI analysis ----
+  const [screenshots, setScreenshots] = useState<any[]>([])
+  const [shotLoading, setShotLoading] = useState(false)
+  const [activeShot, setActiveShot] = useState<any | null>(null)
+  const [shotAnalysis, setShotAnalysis] = useState<Record<string, string>>({})
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!id) return
+    setShotLoading(true)
+    fetch(`/api/sessions/${id}/screenshots`)
+      .then(r => r.json())
+      .then(j => { if (j.ok) setScreenshots(j.screenshots || []) })
+      .finally(() => setShotLoading(false))
+  }, [id])
+
+  async function analyzeShot(shot: any) {
+    if (!shot?.signed_url) return
+    setAnalyzingId(shot.id)
+    try {
+      // Fetch the image as base64 to send to Claude Vision
+      const blob = await (await fetch(shot.signed_url)).blob()
+      const b64 = await new Promise<string>((resolve) => {
+        const r = new FileReader()
+        r.onloadend = () => resolve(String(r.result).split(',')[1] || '')
+        r.readAsDataURL(blob)
+      })
+      const r = await fetch('/api/ai/parse-screenshot', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image_b64: b64,
+          image_type: 'image/png',
+          vendor: shot.vendor || 'generic',
+          session_id: id,
+        }),
+      })
+      const j = await r.json()
+      const txt = j.parsed
+        ? JSON.stringify(j.parsed, null, 2)
+        : (j.raw || j.error || 'No structured data extracted')
+      setShotAnalysis(prev => ({ ...prev, [shot.id]: txt }))
+    } catch (e: any) {
+      setShotAnalysis(prev => ({ ...prev, [shot.id]: 'Error: ' + e.message }))
+    } finally {
+      setAnalyzingId(null)
+    }
+  }
+
   async function askChief() {
     if (!session) return
     setAiLoading(true); setAiAdvice('')
@@ -160,6 +208,67 @@ export default function SessionDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Auto-captured screenshots from Simucube / SimPro / iRacing / Coach Dave */}
+      {(screenshots.length > 0 || shotLoading) && (
+        <Section title={`Auto-Captured Screenshots (${screenshots.length})`}
+                 icon={Settings} accent="#06b6d4"
+                 open={open.shots ?? true} onToggle={() => toggle('shots')}>
+          {shotLoading && <div className="text-xs text-slate-500">Loading captures…</div>}
+          {!shotLoading && screenshots.length === 0 && (
+            <div className="text-xs text-slate-500">
+              No screenshots captured for this session yet. The desktop daemon takes them automatically when Simucube Tuner / SimPro Manager / iRacing are open during a race.
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {screenshots.map((s) => (
+              <div key={s.id} className="rounded-lg overflow-hidden border" style={{ background: 'rgba(20,20,32,0.5)', borderColor: 'rgba(6,182,212,0.20)' }}>
+                <button onClick={() => setActiveShot(s)} className="block w-full">
+                  <img src={s.signed_url} alt={s.vendor}
+                       className="w-full h-auto block hover:opacity-90 transition cursor-zoom-in"
+                       style={{ maxHeight: 240, objectFit: 'cover' }} />
+                </button>
+                <div className="px-3 py-2 flex items-center gap-2 text-xs">
+                  <span className="font-bold uppercase tracking-wider" style={{ color: '#06b6d4' }}>
+                    {s.vendor}
+                  </span>
+                  <span className="text-slate-500 truncate flex-1">
+                    {new Date(s.taken_at).toLocaleString()}
+                  </span>
+                  <button
+                    onClick={() => analyzeShot(s)}
+                    disabled={analyzingId === s.id}
+                    className="ml-auto px-2 py-1 rounded text-[11px] font-bold disabled:opacity-40 inline-flex items-center gap-1"
+                    style={{ background: '#06b6d4', color: 'white' }}
+                    title="Send to Claude Vision for setting extraction">
+                    {analyzingId === s.id ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                    Analyze
+                  </button>
+                </div>
+                {shotAnalysis[s.id] && (
+                  <pre className="px-3 py-2 text-[11px] text-emerald-200 bg-black/40 max-h-[200px] overflow-auto whitespace-pre-wrap border-t border-cyan-500/10">
+                    {shotAnalysis[s.id]}
+                  </pre>
+                )}
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Fullscreen modal viewer when a screenshot is clicked */}
+      {activeShot && (
+        <div onClick={() => setActiveShot(null)}
+             className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-6 cursor-zoom-out">
+          <img src={activeShot.signed_url} alt={activeShot.vendor}
+               className="max-w-full max-h-full rounded-lg shadow-2xl"
+               onClick={(e) => e.stopPropagation()} />
+          <button onClick={() => setActiveShot(null)}
+                  className="absolute top-4 right-4 px-3 py-1 rounded bg-white/10 text-white text-sm">
+            Close ✕
+          </button>
+        </div>
+      )}
 
       {/* Lap-by-lap */}
       {Array.isArray(session.laps_data) && session.laps_data.length > 0 && (
