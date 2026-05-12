@@ -43,17 +43,44 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const sb = createClient()
-    const { data: { user } } = await sb.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 })
     const body = await req.json()
+
+    // Resolve user: cookie first (browser), then body.email (desktop hotkey daemon).
+    let userId: string | null = null
+    let useSvc = false
+    try {
+      const sb = createClient()
+      const { data: { user } } = await sb.auth.getUser()
+      if (user) userId = user.id
+    } catch {}
+
+    if (!userId && body.email) {
+      const email = String(body.email).toLowerCase().trim()
+      const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+      const svc = createServiceClient(supaUrl, serviceKey)
+      const { data: prof } = await svc.from('profiles').select('id').eq('email', email).maybeSingle()
+      if (prof?.id) { userId = prof.id; useSvc = true }
+      if (!userId) {
+        const { data: lu } = await (svc as any).auth.admin.listUsers({ page: 1, perPage: 1000 })
+        const au = (lu?.users || []).find((u: any) => (u.email || '').toLowerCase() === email)
+        if (au?.id) { userId = au.id; useSvc = true }
+      }
+    }
+
+    if (!userId) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 })
+
     const settings = {
       volume: Math.max(0, Math.min(100, Number(body.volume ?? DEFAULTS.volume))),
       voice: String(body.voice || DEFAULTS.voice).slice(0, 80),
       coach_freq: String(body.coach_freq || DEFAULTS.coach_freq).slice(0, 30),
       rate: String(body.rate || DEFAULTS.rate).slice(0, 10),
     }
-    const { error } = await sb.from('profiles').update({ voice_settings: settings }).eq('id', user.id)
+
+    const sb = useSvc
+      ? createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+      : createClient()
+    const { error } = await sb.from('profiles').update({ voice_settings: settings }).eq('id', userId)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, settings })
   } catch (e: any) {

@@ -207,6 +207,44 @@ export default function VoiceSettingsPage() {
         )}
         {error && <div className="text-xs text-[#ff8080]">{error}</div>}
       </div>
+
+      {/* Hotkeys reference */}
+      <div className="rounded-lg p-5 mt-6"
+           style={{ background: '#0f0f18', border: '1px solid #2a2a3a' }}>
+        <div className="flex items-center gap-2 mb-3">
+          <Activity size={14} style={{ color: '#a3ff00' }} />
+          <h3 className="font-display tracking-wider text-sm" style={{ color: '#a3ff00' }}>LIVE HOTKEYS (no alt-tab)</h3>
+        </div>
+        <div className="text-xs text-[#888] mb-3">
+          These work globally — keep racing, just tap. Volume changes are instant (~2s) and persist across restarts.
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+          <div className="flex items-center justify-between p-2 rounded" style={{ background: '#161622' }}>
+            <span className="text-[#ccc]">Volume +10</span>
+            <kbd className="px-2 py-0.5 rounded font-mono" style={{ background: '#000', color: '#a3ff00', border: '1px solid #2a2a3a' }}>Ctrl+Shift+↑</kbd>
+          </div>
+          <div className="flex items-center justify-between p-2 rounded" style={{ background: '#161622' }}>
+            <span className="text-[#ccc]">Volume -10</span>
+            <kbd className="px-2 py-0.5 rounded font-mono" style={{ background: '#000', color: '#a3ff00', border: '1px solid #2a2a3a' }}>Ctrl+Shift+↓</kbd>
+          </div>
+          <div className="flex items-center justify-between p-2 rounded" style={{ background: '#161622' }}>
+            <span className="text-[#ccc]">Mute toggle</span>
+            <kbd className="px-2 py-0.5 rounded font-mono" style={{ background: '#000', color: '#a3ff00', border: '1px solid #2a2a3a' }}>Ctrl+Shift+M</kbd>
+          </div>
+          <div className="flex items-center justify-between p-2 rounded" style={{ background: '#161622' }}>
+            <span className="text-[#ccc]">Silence (0%)</span>
+            <kbd className="px-2 py-0.5 rounded font-mono" style={{ background: '#000', color: '#a3ff00', border: '1px solid #2a2a3a' }}>Ctrl+Shift+0</kbd>
+          </div>
+          <div className="flex items-center justify-between p-2 rounded" style={{ background: '#161622' }}>
+            <span className="text-[#ccc]">50%</span>
+            <kbd className="px-2 py-0.5 rounded font-mono" style={{ background: '#000', color: '#a3ff00', border: '1px solid #2a2a3a' }}>Ctrl+Shift+5</kbd>
+          </div>
+          <div className="flex items-center justify-between p-2 rounded" style={{ background: '#161622' }}>
+            <span className="text-[#ccc]">Max (100%)</span>
+            <kbd className="px-2 py-0.5 rounded font-mono" style={{ background: '#000', color: '#a3ff00', border: '1px solid #2a2a3a' }}>Ctrl+Shift+9</kbd>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
