@@ -26,6 +26,10 @@ export default function HomePage() {
             </div>
           </Link>
           <div className="flex items-center gap-3">
+            <Link href="/install" className="hidden sm:inline-flex items-center gap-1.5 text-sm font-bold px-3 py-2 rounded-md border-2"
+              style={{ borderColor: '#00e5ff', color: '#00e5ff', background: 'rgba(0,229,255,0.06)' }}>
+              ⬇ Download
+            </Link>
             <Link href="/login" className="text-sm font-semibold text-slate-300 hover:text-white transition-colors px-4 py-2">Sign In</Link>
             <Link href="/signup" className="btn-chief !text-sm !py-2 !px-5">Start Free Trial</Link>
           </div>
