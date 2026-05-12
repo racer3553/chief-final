@@ -35,11 +35,10 @@ const ENTRIES = [
       { href: '/dashboard/sessions',               icon: Activity,    label: 'Sessions + Telemetry' },
       { href: '/dashboard/setups',                 icon: Library,     label: 'Setup Library' },
       // ---- existing ----
+      { href: '/dashboard/steering',               icon: Settings,    label: 'Steering' },
+      { href: '/dashboard/brakes',                 icon: Wind,        label: 'Brakes' },
       { href: '/dashboard/sim-racing/coach-dave',  icon: FileInput,   label: 'Coach Dave Info' },
-      { href: '/dashboard/sim-racing/simucube',    icon: Settings,    label: 'Simucube Info' },
-      { href: '/dashboard/sim-racing/moza',        icon: Settings,    label: 'Moza Pit House' },
       { href: '/dashboard/sim-racing/iracing',     icon: Cpu,         label: 'iRacing Settings' },
-      { href: '/dashboard/sim-racing/sim-magic',   icon: Wind,        label: 'SimPro Manager' },
       { href: '/dashboard/sim-setup/library',      icon: Database,    label: 'Session Library (old)' },
       { href: '/dashboard/sim-setup/hardware',     icon: HardDrive,   label: 'FFB & Hardware' },
       { href: '/dashboard/ai-chat?ctx=sim',        icon: Sparkles,    label: 'Ask AI' },
