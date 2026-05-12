@@ -14,6 +14,7 @@ import ChiefLogo from './ChiefLogo'
 const ENTRIES = [
   { id: 'home', label: 'Home', icon: Home, accent: '#a3ff00', href: '/dashboard' },
   { id: 'ask-chief', label: 'Ask Chief', icon: Sparkles, accent: '#06b6d4', href: '/dashboard/ai-chat' },
+  { id: 'voice-settings', label: 'Voice Settings', icon: Settings, accent: '#a855f7', href: '/dashboard/settings' },
   { id: 'sim-dashboard', label: 'Sim Dashboard', icon: Gauge, accent: '#f59e0b', href: '/dashboard/sim-racing' },
   {
     id: 'real', label: 'Real Racecar', icon: Flag, accent: '#ef4444',
