@@ -36,6 +36,7 @@ const ENTRIES = [
       // ---- existing ----
       { href: '/dashboard/sim-racing/coach-dave',  icon: FileInput,   label: 'Coach Dave Info' },
       { href: '/dashboard/sim-racing/simucube',    icon: Settings,    label: 'Simucube Info' },
+      { href: '/dashboard/sim-racing/moza',        icon: Settings,    label: 'Moza Pit House' },
       { href: '/dashboard/sim-racing/iracing',     icon: Cpu,         label: 'iRacing Settings' },
       { href: '/dashboard/sim-racing/sim-magic',   icon: Wind,        label: 'SimPro Manager' },
       { href: '/dashboard/sim-setup/library',      icon: Database,    label: 'Session Library (old)' },
