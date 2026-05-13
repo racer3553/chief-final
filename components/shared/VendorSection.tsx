@@ -19,23 +19,44 @@ export default function VendorSection({
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const [latestShot, setLatestShot] = useState(null)
+
   useEffect(() => {
     (async () => {
+      setLoading(true); setLatestShot(null)
       try {
         const sb = createClient()
         const { data: { user } } = await sb.auth.getUser()
         if (!user) { setLoading(false); return }
-        const { data } = await sb
+
+        const { data: sessData } = await sb
           .from('sim_session_captures')
           .select('id,car_name,track_name,started_at,best_lap_time,total_laps,hardware_scan,detected_vendors')
           .eq('user_id', user.id)
           .order('started_at', { ascending: false })
           .limit(30)
-        const filtered = (data || []).filter(s =>
+
+        const { data: shotData } = await sb
+          .from('sim_session_screenshots')
+          .select('id,session_id,storage_path,window_title,created_at,vendor')
+          .eq('user_id', user.id)
+          .eq('vendor', vendor)
+          .order('created_at', { ascending: false })
+          .limit(30)
+
+        const sessionIdsWithShots = new Set((shotData || []).map(s => s.session_id).filter(Boolean))
+        const filtered = (sessData || []).filter(s =>
           (s.detected_vendors || []).includes(vendor) ||
-          s.hardware_scan?.[category]?.[vendor]?.detected
+          s.hardware_scan?.[category]?.[vendor]?.detected ||
+          sessionIdsWithShots.has(s.id)
         )
         setSessions(filtered)
+
+        if (shotData && shotData[0]) {
+          const { data: signed } = await sb.storage.from('session-screenshots')
+                                                    .createSignedUrl(shotData[0].storage_path, 3600)
+          setLatestShot({ url: signed?.signedUrl, title: shotData[0].window_title, at: shotData[0].created_at })
+        }
       } catch {}
       setLoading(false)
     })()
@@ -45,6 +66,24 @@ export default function VendorSection({
     <div className="max-w-5xl">
       <PageHero title={title} subtitle={subtitle} badge="SIM · AUTO-CAPTURE" accent={accent} icon={Icon} />
       <p className="text-sm text-slate-400 mb-4 max-w-2xl px-1">{description}</p>
+
+      {/* Latest captured screenshot — big preview at top so user instantly sees their settings */}
+      {latestShot?.url && (
+        <div className="rounded-xl p-3 border mb-6"
+             style={{ background: 'rgba(20,20,32,0.6)', borderColor: 'rgba(255,255,255,0.08)' }}>
+          <div className="flex items-center justify-between mb-2 px-1">
+            <div className="text-[11px] font-bold uppercase tracking-wider" style={{ color: accent }}>
+              Latest captured · {new Date(latestShot.at).toLocaleString()}
+            </div>
+            {latestShot.title && (
+              <div className="text-[10px] font-mono text-slate-500 truncate max-w-[60%]">{latestShot.title}</div>
+            )}
+          </div>
+          <img src={latestShot.url} alt={`Latest ${title}`}
+               className="w-full rounded-lg border"
+               style={{ borderColor: 'rgba(255,255,255,0.06)', maxHeight: 520, objectFit: 'contain' }} />
+        </div>
+      )}
 
       {/* Screenshot upload - works for any vendor */}
       <div className="mb-6">

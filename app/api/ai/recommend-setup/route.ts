@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     }))
 
     const completion = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 800,
       system: `You are Chief, an elite race engineer. The driver is about to race ${car || 'a car'} at ${track || 'a track'} with these conditions: ${JSON.stringify(conditions || {})}. Look at their past sessions below, find the one with the BEST lap time + most similar conditions, and recommend it. Be specific: name the exact setup file and the wheel profile. If conditions differ (e.g. track temp), recommend ONE adjustment to the closest setup. Be direct, under 100 words.`,
       messages: [{ role: 'user', content: `Past sessions (sorted by lap time):\n${JSON.stringify(ctx, null, 2)}\n\nWhich setup should I try? What should I adjust?` }],

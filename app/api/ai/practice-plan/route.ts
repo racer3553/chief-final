@@ -65,7 +65,7 @@ Build 3-5 drills, ranked by impact. Be specific — use this driver's actual dat
 Output ONLY the JSON.`
 
     const completion = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }],
     })

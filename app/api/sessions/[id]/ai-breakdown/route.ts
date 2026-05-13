@@ -61,7 +61,7 @@ Give a CONCISE coaching breakdown in this exact format (markdown):
 Be specific to THIS car at THIS track. Reference actual numbers from the data when possible. No fluff.`
 
     const completion = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1500,
       messages: [{ role: 'user', content: prompt }],
     })
