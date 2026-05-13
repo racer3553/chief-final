@@ -103,6 +103,10 @@ export async function POST(req: Request) {
         hardware_scan: session.hardware_scan,
         hardware_scan_end: session.hardware_scan_end,
         detected_vendors: detected,
+        // LIVE CarSetup from iRacing SDK — replaces the broken .sto regex parser.
+        // This is the authoritative per-session setup snapshot AI reads from.
+        setup_snapshot_json: session.setup_snapshot || null,
+        setup_name: session.setup_name || null,
         source: 'auto-capture-desktop',
         raw: session,
       })

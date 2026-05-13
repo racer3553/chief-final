@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
     let q = supabase.from('sim_session_captures')
-      .select('car_name,track_name,layout_name,session_type,started_at,best_lap_time,total_laps,incidents,weather_json,laps_data,hardware_scan,detected_vendors,wheelbase_settings_json,wheel_settings_json,pedal_settings_json,iracing_settings_json')
+      .select('car_name,track_name,layout_name,session_type,started_at,best_lap_time,total_laps,incidents,weather_json,laps_data,hardware_scan,detected_vendors,wheelbase_settings_json,wheel_settings_json,pedal_settings_json,iracing_settings_json,setup_snapshot_json,setup_name')
       .eq('user_id', user.id)
       .order('started_at', { ascending: false })
       .limit(8)   // was 20 — keeps context window under control
@@ -40,6 +40,10 @@ export async function POST(req: Request) {
         incidents: s.incidents,
         conditions: s.weather_json,
         last_lap_breakdown: (s.laps_data || []).slice(-10),
+        // LIVE setup snapshot from iRacing SDK — the AUTHORITATIVE per-session
+        // setup values. Use this to answer "what was my setup at <track>?".
+        active_setup_name: s.setup_name,
+        active_setup_values: s.setup_snapshot_json,
         hardware: {
           detected: s.detected_vendors,
           wheel: activeWheel,
