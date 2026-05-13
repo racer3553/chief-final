@@ -1,17 +1,33 @@
 import { createServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Trophy, Gamepad2, MessageSquare, Settings, Wrench, ChevronRight, Plus } from 'lucide-react'
+import { Trophy, Gamepad2, MessageSquare, Settings, Wrench, ChevronRight, Plus, CheckCircle2 } from 'lucide-react'
 
 export default async function DashboardPage() {
   const supabase = createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [{ data: recentSetups }, { data: recentSim }, { data: pendingMaint }, { data: profile }] = await Promise.all([
+  const [
+    { data: recentSetups },
+    { data: recentSim },
+    { data: pendingMaint },
+    { data: profile },
+    sessionCountRes,
+    traceCountRes,
+  ] = await Promise.all([
     supabase.from('setup_sheets').select('*, cars(name,type), tracks(name)').eq('user_id', user!.id).order('created_at', { ascending: false }).limit(5),
     supabase.from('sim_setups').select('*, cars(name), tracks(name)').eq('user_id', user!.id).order('created_at', { ascending: false }).limit(5),
     supabase.from('maintenance_logs').select('*, cars(name)').eq('user_id', user!.id).neq('status', 'done').eq('priority', 'critical').limit(3),
     supabase.from('profiles').select('*').eq('id', user!.id).single(),
+    supabase.from('sim_session_captures').select('id', { count: 'exact', head: true }).eq('user_id', user!.id),
+    supabase.from('sim_lap_traces').select('id', { count: 'exact', head: true }).eq('user_id', user!.id),
   ])
+
+  // Desktop daemon is "connected" once we've ever received either a session OR a lap trace
+  // from this user's machine. Hides the giant download banner permanently after first race.
+  const desktopConnected =
+    (sessionCountRes.count ?? 0) > 0 ||
+    (traceCountRes.count ?? 0) > 0 ||
+    profile?.desktop_installed === true
 
   return (
     <div className="space-y-6 animate-in">
@@ -23,45 +39,62 @@ export default async function DashboardPage() {
         <p className="text-[#888] text-sm mt-1">Chief is ready. What are we working on?</p>
       </div>
 
-      {/* GIANT DOWNLOAD BANNER — Chief is two parts: this website + a desktop app.
-          Without the desktop app there's no voice coach. Make sure no tester misses this. */}
-      <a
-        href="/install"
-        className="block rounded-2xl p-6 border-2 transition-all hover:scale-[1.01]"
-        style={{
-          background: 'linear-gradient(135deg, rgba(0,229,255,0.18), rgba(245,197,24,0.12))',
-          borderColor: '#00e5ff',
-          boxShadow: '0 0 40px rgba(0,229,255,0.25)',
-        }}
-      >
-        <div className="flex items-center gap-5 flex-wrap">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0"
-               style={{ background: 'rgba(0,229,255,0.25)', border: '2px solid #00e5ff' }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00e5ff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-          </div>
-          <div className="flex-1 min-w-[260px]">
-            <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#00e5ff' }}>
-              Step 1 — required to hear voice coach
+      {/* Desktop daemon — shows download banner until daemon has ever pushed.
+          Once we see ANY session/trace from the user's PC, swap to a compact
+          "Connected" confirmation strip. */}
+      {!desktopConnected ? (
+        <a
+          href="/install"
+          className="block rounded-2xl p-6 border-2 transition-all hover:scale-[1.01]"
+          style={{
+            background: 'linear-gradient(135deg, rgba(0,229,255,0.18), rgba(245,197,24,0.12))',
+            borderColor: '#00e5ff',
+            boxShadow: '0 0 40px rgba(0,229,255,0.25)',
+          }}
+        >
+          <div className="flex items-center gap-5 flex-wrap">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0"
+                 style={{ background: 'rgba(0,229,255,0.25)', border: '2px solid #00e5ff' }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00e5ff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
             </div>
-            <div className="font-display text-2xl text-white tracking-wide mb-1">DOWNLOAD CHIEF FOR DESKTOP</div>
-            <p className="text-sm text-[#aaa] max-w-2xl">
-              This website is your dashboard. The voice coach + live telemetry capture run on your sim PC.
-              Click below, run the installer (3 min), then double-click the Chief icon every time you race.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2">
-            <div className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-display text-base tracking-wide"
-                 style={{ background: '#00e5ff', color: '#000' }}>
-              DOWNLOAD INSTALLER →
+            <div className="flex-1 min-w-[260px]">
+              <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#00e5ff' }}>
+                Step 1 — required to hear voice coach
+              </div>
+              <div className="font-display text-2xl text-white tracking-wide mb-1">DOWNLOAD CHIEF FOR DESKTOP</div>
+              <p className="text-sm text-[#aaa] max-w-2xl">
+                This website is your dashboard. The voice coach + live telemetry capture run on your sim PC.
+                Click below, run the installer (3 min), then double-click the Chief icon every time you race.
+              </p>
             </div>
-            <div className="text-[10px] text-[#666] text-center">Windows · 1 file · ~5 KB</div>
+            <div className="flex flex-col gap-2">
+              <div className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-display text-base tracking-wide"
+                   style={{ background: '#00e5ff', color: '#000' }}>
+                DOWNLOAD INSTALLER →
+              </div>
+              <div className="text-[10px] text-[#666] text-center">Windows · 1 file · ~5 KB</div>
+            </div>
+          </div>
+        </a>
+      ) : (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border"
+             style={{ background: 'rgba(57,255,20,0.06)', borderColor: 'rgba(57,255,20,0.30)' }}>
+          <CheckCircle2 size={18} style={{ color: '#39ff14' }} />
+          <div className="flex-1">
+            <div className="text-[13px] font-bold text-white">
+              Chief Desktop is connected · {(sessionCountRes.count ?? 0)} session{(sessionCountRes.count ?? 0) === 1 ? '' : 's'} captured
+            </div>
+            <div className="text-[11px] text-[#888]">
+              Voice coach + auto-capture are active on your sim PC. Need to reinstall on another machine?{' '}
+              <Link href="/install" className="underline" style={{ color: '#00e5ff' }}>Get the installer</Link>
+            </div>
           </div>
         </div>
-      </a>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[

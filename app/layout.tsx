@@ -21,6 +21,17 @@ export const metadata: Metadata = {
   },
 }
 
+// CRITICAL — without this, iOS Safari renders at ~980px desktop viewport then
+// scales down to fit, so Tailwind's `lg:` (1024px) matches and the FULL desktop
+// sidebar appears on phones. Setting device-width tells Safari to render at
+// the real phone width (e.g. 390px on iPhone 14/15) so responsive breakpoints work.
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: '#0c0c14',
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">

@@ -63,7 +63,7 @@ const ADMIN_EMAILS = [
   'ben@walkerperformancefiltration.com',
 ]
 
-export default function DashboardSidebar({ profile }) {
+export default function DashboardSidebar({ profile, open: drawerOpen = false, onClose }) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -107,7 +107,8 @@ export default function DashboardSidebar({ profile }) {
     (p.email && ADMIN_EMAILS.includes(p.email.toLowerCase()))
 
   return (
-    <aside className="w-60 fixed top-0 left-0 bottom-0 flex flex-col z-40"
+    <aside className={`w-60 max-w-[85vw] fixed top-0 left-0 bottom-0 flex flex-col z-40 transition-transform duration-200 ease-out
+      ${drawerOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
       style={{ background: '#0c0c14', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
 
       <Link href="/dashboard" className="px-4 pt-4 pb-3 flex items-center gap-2.5 border-b group" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
