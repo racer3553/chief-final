@@ -5,6 +5,7 @@
 // back to Microsoft Zira.
 
 import { NextResponse } from 'next/server'
+import { createHash } from 'crypto'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -38,6 +39,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'ws module missing on Vercel — npm i ws' }, { status: 500 })
   }
 
+  // Microsoft started requiring a SHA256 clock-skewed token (Sec-MS-GEC) on
+  // these endpoints — without it the server returns 403. Recomputed each call;
+  // changes every 5 minutes.
+  const TRUSTED_CLIENT_TOKEN = '6A5AA1D4EAFF4E9FB37E23D68491D6F4'
+  const WIN_FILETIME_EPOCH_S = 11644473600
+  const nowTicks = BigInt(Math.floor(Date.now() / 1000 + WIN_FILETIME_EPOCH_S)) * 10_000_000n
+  const fiveMinTicks = 3_000_000_000n
+  const rounded = nowTicks - (nowTicks % fiveMinTicks)
+  const secMsGec = createHash('sha256')
+    .update(`${rounded.toString()}${TRUSTED_CLIENT_TOKEN}`)
+    .digest('hex')
+    .toUpperCase()
+  const secMsGecVersion = '1-130.0.2849.68'
+
   // Build the SSML payload (Microsoft's chunk format)
   const requestId = generateConnectId()
   const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='${voice}'><prosody rate='${rate}' pitch='${pitch}'>${escapeXml(text)}</prosody></voice></speak>`
@@ -52,18 +67,6 @@ export async function POST(req: Request) {
       try { ws.close() } catch {}
       resolve(res)
     }
-
-    // Microsoft started requiring a SHA256 clock-skewed token (Sec-MS-GEC) on
-    // these endpoints — without it the server returns 403. Compute it on every
-    // request (changes every 5 minutes).
-    const TRUSTED_CLIENT_TOKEN = '6A5AA1D4EAFF4E9FB37E23D68491D6F4'
-    const WIN_FILETIME_EPOCH_S = 11644473600
-    const nowTicks = BigInt(Math.floor((Date.now() / 1000 + WIN_FILETIME_EPOCH_S))) * 10_000_000n
-    const fiveMinTicks = 3_000_000_000n
-    const rounded = nowTicks - (nowTicks % fiveMinTicks)
-    const crypto = await import('crypto')
-    const secMsGec = crypto.createHash('sha256').update(`${rounded.toString()}${TRUSTED_CLIENT_TOKEN}`).digest('hex').toUpperCase()
-    const secMsGecVersion = '1-130.0.2849.68'
 
     const ws = new WebSocket(`${EDGE_TTS_WS}&Sec-MS-GEC=${secMsGec}&Sec-MS-GEC-Version=${secMsGecVersion}`, {
       headers: {
