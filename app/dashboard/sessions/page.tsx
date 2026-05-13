@@ -152,16 +152,17 @@ export default function SessionsPage() {
         )}
       </div>
 
-      {/* Table */}
+      {/* Table — Coach-Dave-Delta-style dense race log */}
       <div className="chief-panel rounded-lg overflow-hidden">
-        <div className="grid grid-cols-12 gap-2 px-4 py-2 text-[10px] uppercase tracking-wider text-[#666] border-b border-[#1f2733]">
-          <div className="col-span-2">Date</div>
-          <div className="col-span-1 text-center">Type</div>
-          <div className="col-span-3">Track</div>
-          <div className="col-span-3">Car</div>
-          <div className="col-span-1 text-center">Laps</div>
-          <div className="col-span-1 text-right">Best</div>
-          <div className="col-span-1 text-right">Inc.</div>
+        <div className="grid grid-cols-[110px_50px_minmax(180px,2fr)_minmax(180px,2fr)_60px_90px_50px_90px] gap-2 px-4 py-2 text-[10px] uppercase tracking-wider text-[#666] border-b border-[#1f2733]">
+          <div>Date</div>
+          <div className="text-center">Type</div>
+          <div>Track</div>
+          <div>Car</div>
+          <div className="text-center">Laps</div>
+          <div className="text-right">Best</div>
+          <div className="text-center">Inc</div>
+          <div className="text-right">Action</div>
         </div>
         {loading && (
           <div className="flex items-center justify-center gap-2 p-10 text-[#666]">
@@ -176,22 +177,31 @@ export default function SessionsPage() {
         )}
         {!loading && (data?.sessions || []).map(s => (
           <Link key={s.id} href={`/dashboard/sessions/${s.id}`}
-                className="grid grid-cols-12 gap-2 px-4 py-3 text-sm border-b border-[#1f2733] hover:bg-[#11151c] transition group">
-            <div className="col-span-2 text-[#aaa]">{fmtDate(s.started_at)}</div>
-            <div className="col-span-1 flex justify-center">{typeBadge(s.session_type)}</div>
-            <div className="col-span-3 text-white truncate" title={s.track_name || ''}>
-              {s.track_name || '—'}
-              {s.layout_name && <span className="text-[#666] text-xs ml-1">/ {s.layout_name}</span>}
+                className="grid grid-cols-[110px_50px_minmax(180px,2fr)_minmax(180px,2fr)_60px_90px_50px_90px] gap-2 px-4 py-2.5 text-sm border-b border-[#1f2733] hover:bg-[#0f1218] transition group items-center">
+            <div className="text-[11px] text-[#aaa] leading-tight">
+              <div>{s.started_at ? new Date(s.started_at).toLocaleDateString() : '—'}</div>
+              <div className="text-[10px] text-[#666]">{s.started_at ? new Date(s.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</div>
             </div>
-            <div className="col-span-3 text-[#ccc] truncate" title={s.car_name || ''}>{s.car_name || '—'}</div>
-            <div className="col-span-1 text-center text-[#00e5ff] font-mono-chief">{s.total_laps ?? 0}</div>
-            <div className="col-span-1 text-right text-[#f5c518] font-mono-chief">{fmtTime(s.best_lap_time)}</div>
-            <div className="col-span-1 text-right">
+            <div className="flex justify-center">{typeBadge(s.session_type)}</div>
+            <div className="text-white text-[12.5px] truncate" title={s.track_name || ''}>
+              {s.track_name || '—'}
+              {s.layout_name && <div className="text-[10px] text-[#666] truncate">{s.layout_name}</div>}
+            </div>
+            <div className="text-[#ccc] text-[12.5px] truncate" title={s.car_name || ''}>{s.car_name || '—'}</div>
+            <div className="text-center text-[#00e5ff] font-mono-chief text-[13px]">{s.total_laps ?? 0}</div>
+            <div className="text-right text-[#f5c518] font-mono-chief text-[13px]">{fmtTime(s.best_lap_time)}</div>
+            <div className="text-center">
               {s.incidents ? (
-                <span className="inline-flex items-center gap-1 text-[#ff8080]">
-                  <AlertTriangle size={12} />{s.incidents}
+                <span className="inline-flex items-center gap-0.5 text-[#ff8080] text-[12px] font-mono">
+                  <AlertTriangle size={10} />{s.incidents}
                 </span>
               ) : <span className="text-[#444]">—</span>}
+            </div>
+            <div className="flex justify-end">
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition group-hover:bg-[#00e5ff] group-hover:text-black"
+                    style={{ background: '#00e5ff22', color: '#00e5ff', border: '1px solid #00e5ff44' }}>
+                Open <ChevronRight size={10} />
+              </span>
             </div>
           </Link>
         ))}

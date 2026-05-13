@@ -7,6 +7,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import BiggestGains from '@/components/wow/BiggestGains'
+import SessionContext from '@/components/wow/SessionContext'
 
 type TraceMeta = {
   id: string
@@ -288,6 +289,9 @@ export default function SessionDetailPage() {
           </div>
         </div>
       )}
+
+      {/* SESSION CONTEXT — setup file + hardware settings + iRacing context */}
+      <SessionContext sessionId={id} />
 
       {/* BIGGEST GAINS — the most-actionable insight on this page */}
       <BiggestGains sessionId={id} />
