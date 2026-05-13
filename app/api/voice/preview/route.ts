@@ -53,12 +53,26 @@ export async function POST(req: Request) {
       resolve(res)
     }
 
-    const ws = new WebSocket(EDGE_TTS_WS, {
+    // Microsoft started requiring a SHA256 clock-skewed token (Sec-MS-GEC) on
+    // these endpoints — without it the server returns 403. Compute it on every
+    // request (changes every 5 minutes).
+    const TRUSTED_CLIENT_TOKEN = '6A5AA1D4EAFF4E9FB37E23D68491D6F4'
+    const WIN_FILETIME_EPOCH_S = 11644473600
+    const nowTicks = BigInt(Math.floor((Date.now() / 1000 + WIN_FILETIME_EPOCH_S))) * 10_000_000n
+    const fiveMinTicks = 3_000_000_000n
+    const rounded = nowTicks - (nowTicks % fiveMinTicks)
+    const crypto = await import('crypto')
+    const secMsGec = crypto.createHash('sha256').update(`${rounded.toString()}${TRUSTED_CLIENT_TOKEN}`).digest('hex').toUpperCase()
+    const secMsGecVersion = '1-130.0.2849.68'
+
+    const ws = new WebSocket(`${EDGE_TTS_WS}&Sec-MS-GEC=${secMsGec}&Sec-MS-GEC-Version=${secMsGecVersion}`, {
       headers: {
         'Origin': EDGE_TTS_ORIGIN,
         'Pragma': 'no-cache',
         'Cache-Control': 'no-cache',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.0.0',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0',
+        'Sec-MS-GEC': secMsGec,
+        'Sec-MS-GEC-Version': secMsGecVersion,
       },
     })
 

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Volume2, Mic, Activity, Save, CheckCircle2, Loader2, Play } from 'lucide-react'
 
 const VOICE_OPTIONS = [
@@ -41,6 +41,9 @@ export default function VoiceSettingsPage() {
   const [voice, setVoice] = useState('')
   const [freq, setFreq] = useState('all')
   const [rate, setRate] = useState('-5%')
+  const [testing, setTesting] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     (async () => {
@@ -73,17 +76,33 @@ export default function VoiceSettingsPage() {
     setSaving(false)
   }
 
-  // Server-side voice test — hits /api/voice/preview which uses Microsoft Edge
-  // read-aloud (same as the desktop daemon's edge-tts), so the preview matches
-  // the EXACT voice you'll hear racing (Aria/Jenny/Andrew/Ryan/etc.).
+  // Stop any currently playing test
+  function stopTest() {
+    try { audioRef.current?.pause() } catch (_) {}
+    try { abortRef.current?.abort() } catch (_) {}
+    audioRef.current = null
+    setTesting(false)
+  }
+
+  // Server-side voice test using Microsoft Edge read-aloud (same as daemon's edge-tts).
+  // Cancels any in-flight test before starting a new one, so clicking "Test" repeatedly
+  // with different voice picks swaps the voice instantly.
   async function testVoice() {
     setError('')
+    stopTest()
+    setTesting(true)
+    const ac = new AbortController()
+    abortRef.current = ac
     try {
       const r = await fetch('/api/voice/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice: voice || 'en-US-AriaNeural', rate, text:
-          `Chief here. Voice check at ${volume} percent. Hit the apex and ride the throttle out of three.` }),
+        body: JSON.stringify({
+          voice: voice || 'en-US-AriaNeural',
+          rate,
+          text: `Chief here. Voice check at ${volume} percent. Hit the apex and ride the throttle out of three.`,
+        }),
+        signal: ac.signal,
       })
       if (!r.ok) {
         const j = await r.json().catch(() => ({}))
@@ -91,26 +110,40 @@ export default function VoiceSettingsPage() {
       }
       const blob = await r.blob()
       const url  = URL.createObjectURL(blob)
-      // stop any existing audio first
-      try { (window as any).__chiefAudio?.pause?.() } catch {}
       const audio = new Audio(url)
-      audio.volume = volume / 100
+      audio.volume = Math.max(0, Math.min(1, volume / 100))
+      audio.onended = () => setTesting(false)
+      audio.onerror = () => setTesting(false)
+      audioRef.current = audio
       await audio.play()
-      ;(window as any).__chiefAudio = audio
     } catch (e: any) {
+      if (e?.name === 'AbortError') return
       setError('Voice test failed: ' + (e?.message || 'unknown') + ' — using browser fallback')
-      // Fallback: browser TTS (won't match the neural voice but proves audio path)
       try {
-        const utter = new SpeechSynthesisUtterance(
-          'Chief here. Voice test at ' + volume + ' percent.'
-        )
+        const utter = new SpeechSynthesisUtterance(`Chief here. Voice test at ${volume} percent.`)
         utter.volume = volume / 100
         utter.rate = rate.includes('-') ? 0.85 : rate.includes('+') ? 1.15 : 1.0
         window.speechSynthesis.cancel()
         window.speechSynthesis.speak(utter)
-      } catch {}
+      } catch (_) {}
+      setTesting(false)
     }
   }
+
+  // Live volume — if a test is currently playing, update its volume in real time.
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = Math.max(0, Math.min(1, volume / 100))
+  }, [volume])
+
+  // When the user picks a different voice while a test is playing, re-trigger
+  // the test with the new voice immediately. Same for rate.
+  useEffect(() => {
+    if (audioRef.current && !audioRef.current.paused) {
+      stopTest()
+      testVoice()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voice, rate])
 
   if (loading) {
     return <div className="p-10 flex items-center gap-2 text-[#888]"><Loader2 size={16} className="animate-spin" /> Loading settings…</div>
