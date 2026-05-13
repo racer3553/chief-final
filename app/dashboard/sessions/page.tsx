@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Search, Filter, Trophy, Clock, AlertTriangle, ChevronRight, Loader2 } from 'lucide-react'
+import { Search, Filter, Trophy, Clock, AlertTriangle, ChevronRight, Loader2, Sparkles } from 'lucide-react'
 
 type Session = {
   id: string
@@ -197,8 +197,15 @@ export default function SessionsPage() {
                 </span>
               ) : <span className="text-[#444]">—</span>}
             </div>
-            <div className="flex justify-end">
-              <span className="inline-flex items-center gap-1 px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition group-hover:bg-[#00e5ff] group-hover:text-black"
+            <div className="flex justify-end items-center gap-1.5">
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `/dashboard/debrief/${s.id}` }}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition hover:bg-[#a3ff00] hover:text-black"
+                style={{ background: '#a3ff0022', color: '#a3ff00', border: '1px solid #a3ff0044' }}
+                title="AI Debrief">
+                <Sparkles size={10} /> Debrief
+              </button>
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition group-hover:bg-[#00e5ff] group-hover:text-black"
                     style={{ background: '#00e5ff22', color: '#00e5ff', border: '1px solid #00e5ff44' }}>
                 Open <ChevronRight size={10} />
               </span>

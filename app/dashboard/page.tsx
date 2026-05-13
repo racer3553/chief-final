@@ -1,6 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Trophy, Gamepad2, MessageSquare, Settings, Wrench, ChevronRight, Plus, CheckCircle2 } from 'lucide-react'
+import { Trophy, Gamepad2, MessageSquare, Settings, Wrench, ChevronRight, Plus, CheckCircle2, Target, Zap, Sparkles } from 'lucide-react'
 
 export default async function DashboardPage() {
   const supabase = createServerClient()
@@ -38,6 +38,38 @@ export default async function DashboardPage() {
         </h1>
         <p className="text-[#888] text-sm mt-1">Chief is ready. What are we working on?</p>
       </div>
+
+      {/* HERO: "Where am I losing time?" — the most important question Chief answers.
+          Always-present link to the dedicated page that ranks the user's top 3 slow corners. */}
+      <Link href="/dashboard/lose-time"
+        className="block rounded-2xl p-5 border-2 transition-all hover:scale-[1.005] group"
+        style={{
+          background: 'linear-gradient(135deg, rgba(163,255,0,0.10), rgba(0,229,255,0.05))',
+          borderColor: '#a3ff00',
+          boxShadow: '0 0 30px rgba(163,255,0,0.18)',
+        }}>
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+               style={{ background: 'rgba(163,255,0,0.20)', border: '2px solid #a3ff00' }}>
+            <Target size={26} style={{ color: '#a3ff00' }} />
+          </div>
+          <div className="flex-1 min-w-[240px]">
+            <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#a3ff00' }}>
+              Chief's #1 Insight
+            </div>
+            <div className="font-display text-xl md:text-2xl text-white tracking-wide mb-0.5">
+              Where am I losing time?
+            </div>
+            <p className="text-[12.5px] text-[#aaa]">
+              Top 3 slow corners across your last 5 sessions, with a one-line "next-lap fix" for each.
+            </p>
+          </div>
+          <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-display text-sm tracking-wide group-hover:scale-105 transition-transform"
+               style={{ background: '#a3ff00', color: '#000' }}>
+            <Zap size={14} /> SHOW ME
+          </div>
+        </div>
+      </Link>
 
       {/* Desktop daemon — shows download banner until daemon has ever pushed.
           Once we see ANY session/trace from the user's PC, swap to a compact
@@ -98,7 +130,7 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'New Setup Sheet', href: '/dashboard/race-chief/setup/new', icon: Settings, color: '#f5c518', sub: 'Race Chief' },
+          { label: 'Debrief Last Session', href: '/dashboard/sessions', icon: Sparkles, color: '#a3ff00', sub: 'AI Debrief' },
           { label: 'New Sim Setup', href: '/dashboard/sim-chief/setup/new', icon: Gamepad2, color: '#00e5ff', sub: 'Sim Chief' },
           { label: 'Ask Chief', href: '/dashboard/ai-chat', icon: MessageSquare, color: '#39ff14', sub: 'AI' },
           { label: 'Log Maintenance', href: '/dashboard/race-chief/maintenance', icon: Wrench, color: '#ff2d2d', sub: 'Race Chief' },

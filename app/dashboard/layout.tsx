@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import DashboardShell from '@/components/shared/DashboardShell'
 import BrandWatermark from '@/components/shared/BrandWatermark'
 import BootBanner from '@/components/shared/BootBanner'
+import FloatingAskChief from '@/components/shared/FloatingAskChief'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = createServerClient()
@@ -46,6 +47,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         }} />
 
       <DashboardShell profile={profile}>{children}</DashboardShell>
+
+      {/* Floating Ask Chief bubble — present on every dashboard page */}
+      <FloatingAskChief />
     </div>
   )
 }
