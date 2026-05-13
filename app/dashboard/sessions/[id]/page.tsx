@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2, Activity, Flag, Trophy, Droplet, Cloud, Thermometer
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
+import BiggestGains from '@/components/wow/BiggestGains'
 
 type TraceMeta = {
   id: string
@@ -287,6 +288,9 @@ export default function SessionDetailPage() {
           </div>
         </div>
       )}
+
+      {/* BIGGEST GAINS — the most-actionable insight on this page */}
+      <BiggestGains sessionId={id} />
 
       {/* View toggle: Driving (track map) vs Data (telemetry channels) */}
       <div className="flex items-center gap-2">
