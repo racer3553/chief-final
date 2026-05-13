@@ -1,12 +1,13 @@
 'use client'
 // Wraps Sidebar + Topbar + content with a mobile-first drawer pattern.
-// - Mobile (<1024px): sidebar slides off-screen by default, hamburger in topbar opens it
-// - Desktop (≥1024px): sidebar always visible, content offset by sidebar width
-// - Body has overflow-x-hidden to kill any horizontal scroll
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import DashboardSidebar from './DashboardSidebar'
 import DashboardTopbar from './DashboardTopbar'
+import PageTheme from '@/components/wow/PageTheme'
+import WalkerSportsFooter from '@/components/wow/WalkerSportsFooter'
+import PersonalBestBanner from '@/components/wow/PersonalBestBanner'
+import ChiefMascot from '@/components/wow/ChiefMascot'
 
 export default function DashboardShell({
   profile,
@@ -34,14 +35,12 @@ export default function DashboardShell({
 
   return (
     <>
-      {/* Sidebar */}
-      <DashboardSidebar
-        profile={profile}
-        open={open}
-        onClose={() => setOpen(false)}
-      />
+      <PageTheme />
+      <PersonalBestBanner />
+      <ChiefMascot />
 
-      {/* Mobile backdrop when drawer is open */}
+      <DashboardSidebar profile={profile} open={open} onClose={() => setOpen(false)} />
+
       {open && (
         <div
           className="lg:hidden fixed inset-0 bg-black/60 z-30 backdrop-blur-sm"
@@ -50,16 +49,21 @@ export default function DashboardShell({
         />
       )}
 
-      {/* Content column — full width on mobile, offset by sidebar on desktop */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-60 relative z-10 w-full max-w-full">
-        <DashboardTopbar
-          profile={profile}
-          onMenuClick={() => setOpen(o => !o)}
-        />
-        <main className="flex-1 p-4 md:p-6 overflow-x-hidden overflow-y-auto relative min-w-0 w-full max-w-full">
+        <DashboardTopbar profile={profile} onMenuClick={() => setOpen(o => !o)} />
+        <main key={pathname} className="flex-1 p-4 md:p-6 overflow-x-hidden overflow-y-auto relative min-w-0 w-full max-w-full animate-page-fade">
           {children}
+          <WalkerSportsFooter />
         </main>
       </div>
+
+      <style jsx global>{`
+        @keyframes pageFade {
+          from { opacity: 0; transform: translateY(4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .animate-page-fade { animation: pageFade 220ms ease-out; }
+      `}</style>
     </>
   )
 }
