@@ -5,7 +5,7 @@
 // Drop into /dashboard/ai-chat page or anywhere.
 
 import { useState, useRef, useEffect } from 'react'
-import { Mic, MicOff, Send, Loader2, Volume2 } from 'lucide-react'
+import { Mic, MicOff, Send, Loader2, Volume2, VolumeX } from 'lucide-react'
 
 export default function AskChiefVoice() {
   const [listening, setListening] = useState(false)
@@ -13,6 +13,7 @@ export default function AskChiefVoice() {
   const [answer, setAnswer] = useState('')
   const [loading, setLoading] = useState(false)
   const [contextCount, setContextCount] = useState(0)
+  const [speaking, setSpeaking] = useState(false)
   const recognitionRef = useRef<any>(null)
   const synthRef = useRef<SpeechSynthesis | null>(null)
 
@@ -66,24 +67,40 @@ export default function AskChiefVoice() {
       const j = await r.json()
       setAnswer(j.answer || j.error || 'No answer')
       setContextCount(j.context_sessions || 0)
-      if (j.answer && synthRef.current) {
-        const u = new SpeechSynthesisUtterance(j.answer)
-        u.rate = 1.05
-        synthRef.current.speak(u)
-      }
+      // NOTE: do NOT auto-speak. User clicks the Speak button if they want TTS.
     } catch (e: any) {
       setAnswer('Error: ' + e.message)
     }
     setLoading(false)
   }
 
-  function speakAgain() {
-    if (!answer || !synthRef.current) return
+  function toggleSpeak() {
+    if (!synthRef.current) return
+    if (speaking) {
+      synthRef.current.cancel()
+      setSpeaking(false)
+      return
+    }
+    if (!answer) return
     synthRef.current.cancel()
     const u = new SpeechSynthesisUtterance(answer)
     u.rate = 1.05
+    u.onend = () => setSpeaking(false)
+    u.onerror = () => setSpeaking(false)
     synthRef.current.speak(u)
+    setSpeaking(true)
   }
+
+  // Stop any in-flight speech if user navigates away or asks a new question
+  useEffect(() => {
+    return () => { try { synthRef.current?.cancel() } catch (_) {} }
+  }, [])
+  useEffect(() => {
+    if (loading && speaking) {
+      try { synthRef.current?.cancel() } catch (_) {}
+      setSpeaking(false)
+    }
+  }, [loading])
 
   return (
     <div className="rounded-2xl p-6 border" style={{ background: 'rgba(20,20,32,0.95)', borderColor: 'rgba(6,182,212,0.3)' }}>
@@ -125,10 +142,24 @@ export default function AskChiefVoice() {
           {loading && <div className="flex items-center gap-2 text-cyan-300"><Loader2 size={16} className="animate-spin" /> Chief is thinking...</div>}
           {answer && (
             <>
-              <div className="text-white leading-relaxed whitespace-pre-wrap">{answer}</div>
-              <button onClick={speakAgain} className="mt-3 flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300">
-                <Volume2 size={13} /> Replay
-              </button>
+              <div className="text-white leading-relaxed whitespace-pre-wrap break-words">{answer}</div>
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={toggleSpeak}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-colors"
+                  style={{
+                    background: speaking ? 'rgba(239,68,68,0.15)' : 'rgba(6,182,212,0.15)',
+                    color: speaking ? '#ef4444' : '#22d3ee',
+                    border: '1px solid ' + (speaking ? 'rgba(239,68,68,0.4)' : 'rgba(6,182,212,0.4)'),
+                  }}
+                  aria-label={speaking ? 'Stop speaking' : 'Read aloud'}
+                >
+                  {speaking ? <><VolumeX size={13} /> Stop</> : <><Volume2 size={13} /> Read aloud</>}
+                </button>
+                <span className="text-[10px] text-slate-500">
+                  {speaking ? 'Reading now…' : 'Chief will only speak when you click.'}
+                </span>
+              </div>
             </>
           )}
         </div>
