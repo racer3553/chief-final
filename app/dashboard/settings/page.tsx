@@ -45,20 +45,56 @@ export default function VoiceSettingsPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
+  // Last-known server values — used to skip overwriting local edits the user
+  // is mid-drag on. Updated whenever we successfully fetch.
+  const lastServerRef = useRef<{ volume: number; voice: string; freq: string; rate: string }>({ volume: 80, voice: '', freq: 'all', rate: '-5%' })
+  // Track whether the user is actively interacting — pause polling during drag.
+  const userTouchingRef = useRef<number>(0)
+
   useEffect(() => {
-    (async () => {
+    let cancelled = false
+
+    async function fetchSettings(isInitial: boolean) {
       try {
         const r = await fetch('/api/profile/voice-settings', { cache: 'no-store' })
         const j = await r.json()
-        if (j.settings) {
-          setVolume(Number(j.settings.volume ?? 80))
-          setVoice(String(j.settings.voice || ''))
-          setFreq(String(j.settings.coach_freq || 'all'))
-          setRate(String(j.settings.rate || '-5%'))
+        if (cancelled || !j.settings) return
+        const s = j.settings
+        const incoming = {
+          volume: Number(s.volume ?? 80),
+          voice:  String(s.voice || ''),
+          freq:   String(s.coach_freq || 'all'),
+          rate:   String(s.rate || '-5%'),
         }
-      } catch (e: any) { setError(e.message) }
-      setLoading(false)
-    })()
+
+        // On initial load, just take the server value. On subsequent polls,
+        // only overwrite local state if the server changed AND the user isn't
+        // actively dragging (so we don't fight them).
+        const recentlyTouched = (Date.now() - userTouchingRef.current) < 2000
+        if (isInitial || (!recentlyTouched && incoming.volume !== lastServerRef.current.volume)) {
+          setVolume(incoming.volume)
+        }
+        if (isInitial || (!recentlyTouched && incoming.voice !== lastServerRef.current.voice)) {
+          setVoice(incoming.voice)
+        }
+        if (isInitial || (!recentlyTouched && incoming.freq !== lastServerRef.current.freq)) {
+          setFreq(incoming.freq)
+        }
+        if (isInitial || (!recentlyTouched && incoming.rate !== lastServerRef.current.rate)) {
+          setRate(incoming.rate)
+        }
+        lastServerRef.current = incoming
+      } catch (e: any) {
+        if (isInitial) setError(e.message)
+      }
+      if (isInitial) setLoading(false)
+    }
+
+    fetchSettings(true)
+    // Poll every 1.5s so the slider mirrors the daemon's knob/hotkey/cloud push
+    // within ~2 seconds. Cheap — single GET, tiny JSON.
+    const t = setInterval(() => fetchSettings(false), 1500)
+    return () => { cancelled = true; clearInterval(t) }
   }, [])
 
   async function save() {
@@ -167,8 +203,10 @@ export default function VoiceSettingsPage() {
           <h2 className="font-display text-sm tracking-wider text-white uppercase">Volume</h2>
           <span className="ml-auto font-mono-chief text-2xl text-[#00e5ff]">{volume}</span>
         </div>
-        <input type="range" min={0} max={100} step={5} value={volume}
-               onChange={e => setVolume(Number(e.target.value))}
+        <input type="range" min={0} max={100} step={1} value={volume}
+               onChange={e => { userTouchingRef.current = Date.now(); setVolume(Number(e.target.value)) }}
+               onPointerDown={() => { userTouchingRef.current = Date.now() }}
+               onPointerUp={()   => { userTouchingRef.current = Date.now() }}
                className="w-full" style={{ accentColor: '#00e5ff' }} />
         <div className="flex justify-between text-[10px] text-[#666] mt-1">
           <span>Silent</span><span>Quiet</span><span>Default</span><span>Loud</span><span>Max</span>
