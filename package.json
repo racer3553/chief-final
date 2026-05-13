@@ -23,6 +23,8 @@
     "react": "^18",
     "react-dom": "^18",
     "react-dropzone": "^14.2.3",
+    "ws": "^8.18.0",
+    "@types/ws": "^8.5.10",
     "recharts": "^2.13.0",
     "stripe": "^16.9.0",
     "tailwind-merge": "^2.5.2",

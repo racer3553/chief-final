@@ -73,20 +73,42 @@ export default function VoiceSettingsPage() {
     setSaving(false)
   }
 
-  // Browser-side voice test — uses Web Speech API for instant verification
-  // (the actual daemon will use Edge-TTS, but this proves the browser audio
-  // path works and gives the user immediate feedback at the new volume).
-  function testVoice() {
+  // Server-side voice test — hits /api/voice/preview which uses Microsoft Edge
+  // read-aloud (same as the desktop daemon's edge-tts), so the preview matches
+  // the EXACT voice you'll hear racing (Aria/Jenny/Andrew/Ryan/etc.).
+  async function testVoice() {
+    setError('')
     try {
-      const utter = new SpeechSynthesisUtterance(
-        'Chief here. This is a voice test at ' + volume + ' percent volume. If you hear this loud and clear, your audio is working.'
-      )
-      utter.volume = volume / 100
-      utter.rate = rate.includes('-') ? 0.85 : rate.includes('+') ? 1.15 : 1.0
-      window.speechSynthesis.cancel()
-      window.speechSynthesis.speak(utter)
-    } catch (e) {
-      alert('Browser voice test failed. Use desktop CHIEF-VOLUME.bat instead.')
+      const r = await fetch('/api/voice/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voice: voice || 'en-US-AriaNeural', rate, text:
+          `Chief here. Voice check at ${volume} percent. Hit the apex and ride the throttle out of three.` }),
+      })
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}))
+        throw new Error(j.error || `HTTP ${r.status}`)
+      }
+      const blob = await r.blob()
+      const url  = URL.createObjectURL(blob)
+      // stop any existing audio first
+      try { (window as any).__chiefAudio?.pause?.() } catch {}
+      const audio = new Audio(url)
+      audio.volume = volume / 100
+      await audio.play()
+      ;(window as any).__chiefAudio = audio
+    } catch (e: any) {
+      setError('Voice test failed: ' + (e?.message || 'unknown') + ' — using browser fallback')
+      // Fallback: browser TTS (won't match the neural voice but proves audio path)
+      try {
+        const utter = new SpeechSynthesisUtterance(
+          'Chief here. Voice test at ' + volume + ' percent.'
+        )
+        utter.volume = volume / 100
+        utter.rate = rate.includes('-') ? 0.85 : rate.includes('+') ? 1.15 : 1.0
+        window.speechSynthesis.cancel()
+        window.speechSynthesis.speak(utter)
+      } catch {}
     }
   }
 
