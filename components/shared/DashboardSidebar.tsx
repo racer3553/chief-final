@@ -6,7 +6,7 @@ import {
   Home, Cpu, Gauge, Flag, Monitor, ChevronDown, ChevronRight, LogOut,
   Wrench, Wind, Zap, Sparkles, FileText, BookOpen, FileInput, Settings,
   HardDrive, Database, ListChecks, Shield, Gift, ScanSearch, User,
-  Activity, Library, Target
+  Activity, Library, Target, Lightbulb
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import ChiefLogo from './ChiefLogo'
@@ -14,6 +14,7 @@ import ChiefLogo from './ChiefLogo'
 const ENTRIES = [
   { id: 'home', label: 'Home', icon: Home, accent: '#a3ff00', href: '/dashboard' },
   { id: 'lose-time', label: 'Where Am I Losing Time?', icon: Target, accent: '#a3ff00', href: '/dashboard/lose-time' },
+  { id: 'lights', label: 'Sim Rig Lights', icon: Lightbulb, accent: '#ff00aa', href: '/dashboard/lights' },
   { id: 'ask-chief', label: 'Ask Chief', icon: Sparkles, accent: '#06b6d4', href: '/dashboard/ai-chat' },
   { id: 'dna', label: 'Driving DNA', icon: Activity, accent: '#a855f7', href: '/dashboard/dna' },
   { id: 'voice-settings', label: 'Voice Settings', icon: Settings, accent: '#a855f7', href: '/dashboard/settings' },
