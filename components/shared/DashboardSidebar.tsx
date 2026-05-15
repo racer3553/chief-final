@@ -39,18 +39,15 @@ const ENTRIES = [
       { href: '/dashboard/setup-diff',             icon: FileInput,   label: 'Setup Diff' },
       { href: '/dashboard/translate',              icon: Sparkles,    label: 'Feedback Translator' },
       { href: '/dashboard/setups',                 icon: Library,     label: 'Setup Library' },
-      // ---- existing ----
-      // ---- NEW category tabs (additions, not replacements) ----
+      // ---- Category hubs (Simucube + SimPro merged INSIDE these) ----
+      // Steering: includes Simucube Tuner screenshots/settings automatically
+      // Brakes: includes SimPro Manager (Sim Magic P2000) pedal curves automatically
       { href: '/dashboard/steering',               icon: Settings,    label: 'Steering' },
       { href: '/dashboard/brakes',                 icon: Wind,        label: 'Brakes' },
-      // ---- original vendor-specific tabs (kept for testers) ----
+      // ---- Other vendor / sim apps ----
       { href: '/dashboard/sim-racing/coach-dave',  icon: FileInput,   label: 'Coach Dave Info' },
-      { href: '/dashboard/sim-racing/simucube',    icon: Settings,    label: 'Simucube Info' },
       { href: '/dashboard/sim-racing/moza',        icon: Settings,    label: 'Moza Pit House' },
       { href: '/dashboard/sim-racing/iracing',     icon: Cpu,         label: 'iRacing Settings' },
-      { href: '/dashboard/sim-racing/sim-magic',   icon: Wind,        label: 'SimPro Manager' },
-      { href: '/dashboard/sim-setup/library',      icon: Database,    label: 'Session Library (old)' },
-      { href: '/dashboard/sim-setup/hardware',     icon: HardDrive,   label: 'FFB & Hardware' },
       { href: '/dashboard/ai-chat?ctx=sim',        icon: Sparkles,    label: 'Ask AI' },
     ],
   },
